@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Klipper Config Generator</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 2em auto; line-height: 1.6; }
+        .box { border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; border-radius: 8px; }
+        textarea { width: 100%; height: 200px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h2>Klipper Config Generator (Test)</h2>
+    
+    <div class="box">
+        <label>Select Board:</label>
+        <select id="boardSelect">
+            <option value="generic-bigtreetech-skr-mini-e3-v3.0.cfg">BTT SKR Mini E3 V3</option>
+            <option value="generic-bigtreetech-octopus-v1.1.cfg">BTT Octopus V1.1</option>
+        </select>
+        <br><br>
+        <label>Bed Width (X max):</label>
+        <input type="number" id="bedX" value="235">
+    </div>
+
+    <button onclick="buildConfig()">Generate printer.cfg</button>
+
+    <h3>Output:</h3>
+    <textarea id="output" readonly></textarea>
+
+    <script src="generator.js"></script>
+</body>
+</html>
