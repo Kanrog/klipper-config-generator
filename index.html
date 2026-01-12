@@ -74,39 +74,52 @@
         }
     };
 
-    async function generate() {
-        const boardFile = document.getElementById('boardSelect').value;
-        const name = document.getElementById('printerName').value;
-        const x = document.getElementById('bedX').value;
-        const y = document.getElementById('bedY').value;
-        const z = document.getElementById('bedZ').value;
-        const blt = document.getElementById('hasBLTouch').checked;
+    aasync function generate() {
+    const boardFile = document.getElementById('boardSelect').value;
+    const x = document.getElementById('bedX').value;
+    const y = document.getElementById('bedY').value;
+    const z = document.getElementById('bedZ').value;
 
-        try {
-            const resp = await fetch(`./config-examples/${boardFile}`);
-            const raw = await resp.text();
+    try {
+        const resp = await fetch(`./config-examples/${boardFile}`);
+        const raw = await resp.text();
 
-            // Extract [board_pins]
-            const pinMatch = raw.match(/\[board_pins\][\s\S]*?aliases:([\s\S]*?)(?=\n\[|$)/);
-            const aliases = pinMatch ? pinMatch[1].trim() : "# No aliases found in source";
+        // 1. Helper function to find a specific pin in the raw config text
+        const findPin = (section, key) => {
+            const regex = new RegExp(`\\[${section}\\][\\s\\S]*?${key}:\\s*(\\S+)`, 'i');
+            const match = raw.match(regex);
+            return match ? match[1] : "PA0_FIXME"; // Default if not found
+        };
 
-            let cfg = `# ${name}\n# Generated via Custom Klipper Configurator\n\n`;
-            cfg += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
-            cfg += `[printer]\nkinematics: cartesian\nmax_velocity: 300\nmax_accel: 3000\n\n`;
-            cfg += `[board_pins]\naliases:\n    ${aliases}\n\n`;
-            
-            // X Stepper Logic
-            cfg += `[stepper_x]\nstep_pin: PB13\ndir_pin: !PB12\nenable_pin: !PB14\nmicrosteps: 16\nrotation_distance: 40\nendstop_pin: ^PC0\nposition_endstop: 0\nposition_max: ${x}\nhoming_speed: 50\n\n`;
-            
-            if(blt) {
-                cfg += `[bltouch]\nsensor_pin: ^PC14\ncontrol_pin: PA1\nx_offset: -40\ny_offset: -10\nz_offset: 0\n\n`;
-            }
+        // 2. Extract [board_pins] if they exist (for the header)
+        const pinMatch = raw.match(/\[board_pins\][\s\S]*?aliases:([\s\S]*?)(?=\n\[|$)/);
+        const aliases = pinMatch ? pinMatch[1].trim() : "# No aliases found";
 
-            document.getElementById('output').value = cfg;
-        } catch (e) {
-            alert("Fetch failed. Make sure the file exists in /config-examples/");
-        }
+        let cfg = `# Generated Config\n\n`;
+        cfg += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
+        cfg += `[board_pins]\naliases:\n    ${aliases}\n\n`;
+
+        // 3. Dynamically map pins found in the board's example config
+        // This makes the generator "Universal" for your example files
+        cfg += `[stepper_x]\n`;
+        cfg += `step_pin: ${findPin('stepper_x', 'step_pin')}\n`;
+        cfg += `dir_pin: ${findPin('stepper_x', 'dir_pin')}\n`;
+        cfg += `enable_pin: ${findPin('stepper_x', 'enable_pin')}\n`;
+        cfg += `rotation_distance: 40\nmicrosteps: 16\n`;
+        cfg += `endstop_pin: ${findPin('stepper_x', 'endstop_pin')}\n`;
+        cfg += `position_endstop: 0\nposition_max: ${x}\n\n`;
+
+        // Repeat for Y and Z...
+        cfg += `[stepper_y]\nstep_pin: ${findPin('stepper_y', 'step_pin')}\n`;
+        cfg += `dir_pin: ${findPin('stepper_y', 'dir_pin')}\n`;
+        cfg += `position_max: ${y}\n\n`;
+
+        document.getElementById('output').value = cfg;
+    } catch (e) {
+        console.error(e);
+        alert("Error: Check console or verify file exists in /config-examples/");
     }
+}
 
     function download() {
         const blob = new Blob([document.getElementById('output').value], {type: 'text/plain'});
