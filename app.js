@@ -35,6 +35,7 @@ async function generate() {
     const y = document.getElementById('bedY').value;
     const z = document.getElementById('bedZ').value;
     const blt = document.getElementById('hasBLTouch').checked;
+    const selectedSections = Array.from(document.querySelectorAll('#sections-container input[type="checkbox"]:checked')).map(cb => cb.value);
 
     try {
         const response = await fetch(`./${CONFIG_FOLDER}/${boardFile}`);
@@ -50,14 +51,20 @@ async function generate() {
         let cfg = `# Klipper Config | Generated for ${boardFile}\n`;
         cfg += `# Date: ${new Date().toLocaleDateString()}\n\n`;
 
-        cfg += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
+        if (selectedSections.includes('mcu')) {
+            cfg += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
+        }
 
-        cfg += `[printer]\nkinematics: cartesian\nmax_velocity: 300\nmax_accel: 3000\nmax_z_velocity: 5\nmax_z_accel: 100\n\n`;
+        if (selectedSections.includes('printer')) {
+            cfg += `[printer]\nkinematics: cartesian\nmax_velocity: 300\nmax_accel: 3000\nmax_z_velocity: 5\nmax_z_accel: 100\n\n`;
+        }
 
         // Pull Aliases if they exist
-        const aliasMatch = raw.match(/\[board_pins\][\s\S]*?aliases:([\s\S]*?)(?=\n\[|$)/);
-        if (aliasMatch) {
-            cfg += `[board_pins]\naliases:\n    ${aliasMatch[1].trim()}\n\n`;
+        if (selectedSections.includes('board_pins')) {
+            const aliasMatch = raw.match(/\[board_pins\][\s\S]*?aliases:([\s\S]*?)(?=\n\[|$)/);
+            if (aliasMatch) {
+                cfg += `[board_pins]\naliases:\n    ${aliasMatch[1].trim()}\n\n`;
+            }
         }
 
         // Steppers X, Y, Z
@@ -69,50 +76,64 @@ async function generate() {
 
         axes.forEach(axis => {
             const s = `stepper_${axis.id}`;
-            cfg += `[${s}]\n`;
-            cfg += `step_pin: ${getPin(s, 'step_pin')}\n`;
-            cfg += `dir_pin: ${getPin(s, 'dir_pin')}\n`;
-            cfg += `enable_pin: ${getPin(s, 'enable_pin')}\n`;
-            cfg += `microsteps: 16\nrotation_distance: 40\n`;
+            if (selectedSections.includes(s)) {
+                cfg += `[${s}]\n`;
+                cfg += `step_pin: ${getPin(s, 'step_pin')}\n`;
+                cfg += `dir_pin: ${getPin(s, 'dir_pin')}\n`;
+                cfg += `enable_pin: ${getPin(s, 'enable_pin')}\n`;
+                cfg += `microsteps: 16\nrotation_distance: 40\n`;
 
-            if (axis.id === 'z' && blt) {
-                cfg += `endstop_pin: probe:z_virtual_endstop\n`;
-                cfg += `position_min: -2\n`;
-            } else {
-                cfg += `endstop_pin: ${getPin(s, axis.stop)}\n`;
-                cfg += `position_endstop: 0\n`;
+                if (axis.id === 'z' && blt && selectedSections.includes('bltouch')) {
+                    cfg += `endstop_pin: probe:z_virtual_endstop\n`;
+                    cfg += `position_min: -2\n`;
+                } else {
+                    cfg += `endstop_pin: ${getPin(s, axis.stop)}\n`;
+                    cfg += `position_endstop: 0\n`;
+                }
+                cfg += `position_max: ${axis.max}\nhoming_speed: 50\n\n`;
             }
-            cfg += `position_max: ${axis.max}\nhoming_speed: 50\n\n`;
         });
 
         // Extruder
-        cfg += `[extruder]\n`;
-        cfg += `step_pin: ${getPin('extruder', 'step_pin')}\n`;
-        cfg += `dir_pin: ${getPin('extruder', 'dir_pin')}\n`;
-        cfg += `enable_pin: ${getPin('extruder', 'enable_pin')}\n`;
-        cfg += `microsteps: 16\nrotation_distance: 33.500\nnozzle_diameter: 0.400\nfilament_diameter: 1.750\n`;
-        cfg += `heater_pin: ${getPin('extruder', 'heater_pin')}\n`;
-        cfg += `sensor_type: EPCOS 100K B57560G104F\n`;
-        cfg += `sensor_pin: ${getPin('extruder', 'sensor_pin')}\n`;
-        cfg += `control: pid\npid_Kp: 22.2\npid_Ki: 1.08\npid_Kd: 114\nmin_temp: 0\nmax_temp: 250\n\n`;
+        if (selectedSections.includes('extruder')) {
+            cfg += `[extruder]\n`;
+            cfg += `step_pin: ${getPin('extruder', 'step_pin')}\n`;
+            cfg += `dir_pin: ${getPin('extruder', 'dir_pin')}\n`;
+            cfg += `enable_pin: ${getPin('extruder', 'enable_pin')}\n`;
+            cfg += `microsteps: 16\nrotation_distance: 33.500\nnozzle_diameter: 0.400\nfilament_diameter: 1.750\n`;
+            cfg += `heater_pin: ${getPin('extruder', 'heater_pin')}\n`;
+            cfg += `sensor_type: EPCOS 100K B57560G104F\n`;
+            cfg += `sensor_pin: ${getPin('extruder', 'sensor_pin')}\n`;
+            cfg += `control: pid\npid_Kp: 22.2\npid_Ki: 1.08\npid_Kd: 114\nmin_temp: 0\nmax_temp: 250\n\n`;
+        }
 
         // Bed
-        cfg += `[heater_bed]\n`;
-        cfg += `heater_pin: ${getPin('heater_bed', 'heater_pin')}\n`;
-        cfg += `sensor_type: ATC Semitec 104GT-2\n`;
-        cfg += `sensor_pin: ${getPin('heater_bed', 'sensor_pin')}\n`;
-        cfg += `control: watermark\nmin_temp: 0\nmax_temp: 130\n\n`;
+        if (selectedSections.includes('heater_bed')) {
+            cfg += `[heater_bed]\n`;
+            cfg += `heater_pin: ${getPin('heater_bed', 'heater_pin')}\n`;
+            cfg += `sensor_type: ATC Semitec 104GT-2\n`;
+            cfg += `sensor_pin: ${getPin('heater_bed', 'sensor_pin')}\n`;
+            cfg += `control: watermark\nmin_temp: 0\nmax_temp: 130\n\n`;
+        }
 
         // Fans
-        cfg += `[fan]\npin: ${getPin('fan', 'pin')}\n\n`;
-        cfg += `[mcu_fan]\npin: ${getPin('controller_fan', 'pin', 'PA0_FIXME')}\n\n`;
+        if (selectedSections.includes('fan')) {
+            cfg += `[fan]\npin: ${getPin('fan', 'pin')}\n\n`;
+        }
+        if (selectedSections.includes('controller_fan')) {
+            cfg += `[controller_fan]\npin: ${getPin('controller_fan', 'pin', 'PA0_FIXME')}\n\n`;
+        }
 
-        // BLTouch Logic
+        // BLTouch Logic is conditional on master switch AND individual checkboxes
         if (blt) {
-            const s_pin = getPin('bltouch', 'sensor_pin', getPin('probe', 'pin', 'PC14'));
-            const c_pin = getPin('bltouch', 'control_pin', 'PA1');
-            cfg += `[bltouch]\nsensor_pin: ${s_pin}\ncontrol_pin: ${c_pin}\nx_offset: -40\ny_offset: -10\nz_offset: 0\n\n`;
-            cfg += `[safe_z_home]\nhome_xy_position: ${x/2}, ${y/2}\nspeed: 50\nz_hop: 10\n\n`;
+            if (selectedSections.includes('bltouch')) {
+                const s_pin = getPin('bltouch', 'sensor_pin', getPin('probe', 'pin', 'PC14'));
+                const c_pin = getPin('bltouch', 'control_pin', 'PA1');
+                cfg += `[bltouch]\nsensor_pin: ${s_pin}\ncontrol_pin: ${c_pin}\nx_offset: -40\ny_offset: -10\nz_offset: 0\n\n`;
+            }
+            if (selectedSections.includes('safe_z_home')) {
+                cfg += `[safe_z_home]\nhome_xy_position: ${x/2}, ${y/2}\nspeed: 50\nz_hop: 10\n\n`;
+            }
         }
 
         document.getElementById('output').value = cfg;
