@@ -2,115 +2,154 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Klipper Config Generator</title>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; }
-        body { font-family: system-ui, sans-serif; background: var(--bg); padding: 20px; }
-        .wrapper { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
-        .panel { background: var(--card); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 5px; color: #475569; }
-        select, input { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; }
-        textarea { width: 100%; height: 600px; font-family: 'Fira Code', monospace; background: #0f172a; color: #f1f5f9; padding: 15px; border-radius: 8px; border: none; font-size: 0.85rem; line-height: 1.5; }
-        button { width: 100%; padding: 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
-        .btn-gen { background: var(--primary); color: white; }
-        .btn-dl { background: #10b981; color: white; }
-        button:hover { filter: brightness(1.1); }
+        :root {
+            --primary: #2563eb;
+            --success: #10b981;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --terminal: #0f172a;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 25px;
+        }
+
+        .panel {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 { margin-top: 0; font-size: 1.25rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 20px; }
+
+        .group { margin-bottom: 18px; }
+        label { display: block; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f1f5f9;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .checkbox-group input { width: auto; }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn-generate { background: var(--primary); color: white; margin-top: 10px; }
+        .btn-download { background: var(--success); color: white; }
+        button:hover { opacity: 0.9; }
+        button:active { transform: scale(0.98); }
+
+        textarea {
+            flex-grow: 1;
+            background: var(--terminal);
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            padding: 20px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+
+        @media (max-width: 850px) {
+            .container { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
-<div class="wrapper">
+<div class="container">
     <div class="panel">
-        <h2>🛠️ Generator</h2>
+        <h2>🛠️ Printer Settings</h2>
         
-        <div class="input-group">
-            <label>Detected Board</label>
-            <select id="boardSelect"><option>Fetching files...</option></select>
+        <div class="group">
+            <label>Motherboard</label>
+            <select id="boardSelect">
+                <option>Loading from GitHub...</option>
+            </select>
         </div>
 
-        <div class="input-group">
-            <label>Bed Size (X / Y / Z)</label>
-            <div style="display: flex; gap: 8px;">
-                <input type="number" id="bedX" value="235">
-                <input type="number" id="bedY" value="235">
-                <input type="number" id="bedZ" value="250">
+        <div class="group">
+            <label>Bed Dimensions (X / Y / Z)</label>
+            <div class="grid-3">
+                <input type="number" id="bedX" value="235" placeholder="X">
+                <input type="number" id="bedY" value="235" placeholder="Y">
+                <input type="number" id="bedZ" value="250" placeholder="Z">
             </div>
         </div>
 
-        <div class="input-group">
-            <label><input type="checkbox" id="hasBLTouch"> Add BLTouch Section</label>
+        <div class="group">
+            <label>Options</label>
+            <div class="checkbox-group">
+                <input type="checkbox" id="hasBLTouch">
+                <span>Include BLTouch / Probe</span>
+            </div>
         </div>
 
-        <button class="btn-gen" onclick="generate()">Generate Config</button>
-        <button class="btn-dl" onclick="download()">Download .cfg</button>
+        <button class="btn-generate" onclick="generate()">Generate Config</button>
+        <button class="btn-download" onclick="download()">Download printer.cfg</button>
+
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 20px;">
+            Note: This tool scrapes pins from your <code>/config-examples</code> folder. Always verify pins before first move.
+        </p>
     </div>
 
     <div class="panel">
-        <textarea id="output" readonly></textarea>
+        <h2>📄 printer.cfg Preview</h2>
+        <textarea id="output" readonly placeholder="Your generated configuration will appear here..."></textarea>
     </div>
 </div>
 
-<script>
-    const CONFIG_URL = "https://api.github.com/repos/Kanrog/klipper-config-generator/contents/config-examples";
+<script src="app.js"></script>
 
-    // Auto-populate boards from the repo
-    window.onload = async () => {
-        const select = document.getElementById('boardSelect');
-        try {
-            const resp = await fetch(CONFIG_URL);
-            const files = await resp.json();
-            select.innerHTML = '';
-            files.forEach(f => {
-                if(f.name.endsWith('.cfg')) {
-                    const opt = document.createElement('option');
-                    opt.value = f.name;
-                    opt.textContent = f.name.replace('generic-', '').replace('.cfg', '').replace(/-/g, ' ').toUpperCase();
-                    select.appendChild(opt);
-                }
-            });
-        } catch (e) {
-            select.innerHTML = '<option>Error: check API rate limit</option>';
-        }
-    };
-
-    async function generate() {
-        const file = document.getElementById('boardSelect').value;
-        const x = document.getElementById('bedX').value;
-        const y = document.getElementById('bedY').value;
-        const z = document.getElementById('bedZ').value;
-
-        const resp = await fetch(`./config-examples/${file}`);
-        const raw = await resp.text();
-
-        // Robust Pin Scraper
-        const getPin = (section, key) => {
-            const regex = new RegExp(`\\[${section}\\][\\s\\S]*?${key}:\\s*(\\S+)`, 'i');
-            const match = raw.match(regex);
-            return match ? match[1] : "PA0_FIXME";
-        };
-
-        let cfg = `# Generated for ${file}\n\n`;
-        cfg += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
-        cfg += `[printer]\nkinematics: cartesian\nmax_velocity: 300\nmax_accel: 3000\n\n`;
-
-        // X Stepper
-        cfg += `[stepper_x]\nstep_pin: ${getPin('stepper_x', 'step_pin')}\ndir_pin: ${getPin('stepper_x', 'dir_pin')}\nenable_pin: ${getPin('stepper_x', 'enable_pin')}\nmicrosteps: 16\nrotation_distance: 40\nendstop_pin: ${getPin('stepper_x', 'endstop_pin')}\nposition_endstop: 0\nposition_max: ${x}\nhoming_speed: 50\n\n`;
-
-        // Y Stepper
-        cfg += `[stepper_y]\nstep_pin: ${getPin('stepper_y', 'step_pin')}\ndir_pin: ${getPin('stepper_y', 'dir_pin')}\nenable_pin: ${getPin('stepper_y', 'enable_pin')}\nmicrosteps: 16\nrotation_distance: 40\nendstop_pin: ${getPin('stepper_y', 'endstop_pin')}\nposition_endstop: 0\nposition_max: ${y}\nhoming_speed: 50\n\n`;
-
-        document.getElementById('output').value = cfg;
-    }
-
-    function download() {
-        const text = document.getElementById('output').value;
-        const blob = new Blob([text], {type: 'text/plain'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = "printer.cfg";
-        a.click();
-    }
-</script>
 </body>
 </html>
