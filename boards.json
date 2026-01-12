@@ -1,0 +1,8 @@
+{
+    "boards": [
+        { "name": "BTT SKR Mini E3 V3", "file": "generic-bigtreetech-skr-mini-e3-v3.0.cfg" },
+        { "name": "BTT SKR 3 / SKR 3 EZ", "file": "generic-bigtreetech-skr-3.cfg" },
+        { "name": "Creality V4.2.7 (Silent)", "file": "generic-creality-v4.2.7.cfg" },
+        { "name": "MKS Robin Nano V3", "file": "generic-mks-robin-nano-v3.cfg" }
+    ]
+}

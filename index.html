@@ -2,138 +2,119 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Klipper Config Generator</title>
+    <title>Klipper Config Generator v2</title>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: #1e293b; padding: 2rem; }
-        .container { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-        .form-section { background: var(--card); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-        .output-section { display: flex; flex-direction: column; }
-        h2 { margin-top: 0; color: var(--primary); }
-        .input-group { margin-bottom: 1rem; }
-        label { display: block; font-weight: 600; margin-bottom: 0.25rem; font-size: 0.9rem; }
-        input, select, textarea { width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-        textarea { flex-grow: 1; font-family: 'Courier New', monospace; font-size: 0.85rem; min-height: 400px; resize: none; background: #1e293b; color: #f8fafc; }
-        button { background: var(--primary); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; margin-top: 1rem; }
-        button:hover { opacity: 0.9; }
-        .download-btn { background: #059669; margin-top: 0.5rem; }
+        :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; }
+        body { font-family: sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .wrapper { display: grid; grid-template-columns: 350px 1fr; gap: 20px; width: 100%; max-width: 1200px; }
+        .panel { background: var(--card); padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #64748b; }
+        select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        textarea { width: 100%; height: 600px; font-family: monospace; background: #1e293b; color: #e2e8f0; padding: 15px; border-radius: 4px; border: none; }
+        button { width: 100%; padding: 10px; cursor: pointer; border-radius: 4px; border: none; font-weight: bold; margin-bottom: 10px; }
+        .btn-gen { background: var(--primary); color: white; }
+        .btn-dl { background: #10b981; color: white; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="form-section">
-        <h2>Printer Details</h2>
+<div class="wrapper">
+    <div class="panel">
+        <h2>🛠️ Settings</h2>
         
         <div class="input-group">
-            <label>Motherboard (from /config-examples/)</label>
-            <select id="boardFile">
-                <option value="generic-bigtreetech-skr-mini-e3-v3.0.cfg">BTT SKR Mini E3 V3</option>
-                <option value="generic-bigtreetech-octopus-v1.1.cfg">BTT Octopus V1.1</option>
-            </select>
+            <label>Motherboard</label>
+            <select id="boardSelect"><option>Loading boards...</option></select>
         </div>
 
         <div class="input-group">
-            <label>Printer Kinematics</label>
-            <select id="kinematics">
-                <option value="cartesian">Cartesian</option>
-                <option value="corexy">CoreXY</option>
-            </select>
+            <label>Printer Name</label>
+            <input type="text" id="printerName" value="My Custom Printer">
         </div>
 
-        <div style="display: flex; gap: 10px;">
-            <div class="input-group">
-                <label>Bed Width (X)</label>
+        <div class="input-group">
+            <label>Dimensions (X, Y, Z)</label>
+            <div style="display: flex; gap: 5px;">
                 <input type="number" id="bedX" value="235">
-            </div>
-            <div class="input-group">
-                <label>Bed Depth (Y)</label>
                 <input type="number" id="bedY" value="235">
+                <input type="number" id="bedZ" value="250">
             </div>
         </div>
 
         <div class="input-group">
-            <label>Z Height</label>
-            <input type="number" id="bedZ" value="250">
+            <label><input type="checkbox" id="hasBLTouch"> Include BLTouch</label>
         </div>
 
-        <div class="input-group">
-            <label>
-                <input type="checkbox" id="hasBLTouch"> Include BLTouch
-            </label>
-        </div>
-
-        <button onclick="generateConfig()">Preview Config</button>
-        <button class="download-btn" onclick="downloadConfig()">Download printer.cfg</button>
+        <button class="btn-gen" onclick="generate()">Generate Preview</button>
+        <button class="btn-dl" onclick="download()">Download printer.cfg</button>
     </div>
 
-    <div class="output-section">
-        <h2>Generated printer.cfg</h2>
-        <textarea id="output" readonly placeholder="Click Generate to see output..."></textarea>
+    <div class="panel">
+        <textarea id="output" readonly placeholder="Output will appear here..."></textarea>
     </div>
 </div>
 
 <script>
-    async function generateConfig() {
-        const boardFileName = document.getElementById('boardFile').value;
-        const configPath = `./config-examples/${boardFileName}`;
-        
+    // 1. Auto-populate dropdown on load
+    window.onload = async () => {
+        const select = document.getElementById('boardSelect');
         try {
-            // 1. Fetch the board file you added to your repo
-            const response = await fetch(configPath);
-            if (!response.ok) throw new Error("Could not find board file in /config-examples/");
-            const rawText = await response.text();
+            const resp = await fetch('boards.json');
+            const data = await resp.json();
+            select.innerHTML = ''; // Clear loading message
+            data.boards.forEach(b => {
+                let opt = document.createElement('option');
+                opt.value = b.file;
+                opt.textContent = b.name;
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            select.innerHTML = '<option>Error loading boards.json</option>';
+        }
+    };
 
-            // 2. Extract [board_pins] section
-            const boardPinsMatch = rawText.match(/\[board_pins\][\s\S]*?aliases:([\s\S]*?)(?=\n\[|$)/);
-            const aliases = boardPinsMatch ? boardPinsMatch[1].trim() : "# No aliases found in source";
+    async function generate() {
+        const boardFile = document.getElementById('boardSelect').value;
+        const name = document.getElementById('printerName').value;
+        const x = document.getElementById('bedX').value;
+        const y = document.getElementById('bedY').value;
+        const z = document.getElementById('bedZ').value;
+        const blt = document.getElementById('hasBLTouch').checked;
 
-            // 3. Get User Values
-            const kin = document.getElementById('kinematics').value;
-            const x = document.getElementById('bedX').value;
-            const y = document.getElementById('bedY').value;
-            const z = document.getElementById('bedZ').value;
-            const bltouch = document.getElementById('hasBLTouch').checked;
+        try {
+            const resp = await fetch(`./config-examples/${boardFile}`);
+            const raw = await resp.text();
 
-            // 4. Build the Template
-            let config = `# Klipper Generated Config - ${new Date().toLocaleDateString()}\n\n`;
+            // Extract [board_pins]
+            const pinMatch = raw.match(/\[board_pins\][\s\S]*?aliases:([\s\S]*?)(?=\n\[|$)/);
+            const aliases = pinMatch ? pinMatch[1].trim() : "# No aliases found in source";
+
+            let cfg = `# ${name}\n# Generated via Custom Klipper Configurator\n\n`;
+            cfg += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
+            cfg += `[printer]\nkinematics: cartesian\nmax_velocity: 300\nmax_accel: 3000\n\n`;
+            cfg += `[board_pins]\naliases:\n    ${aliases}\n\n`;
             
-            config += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
+            // X Stepper Logic
+            cfg += `[stepper_x]\nstep_pin: PB13\ndir_pin: !PB12\nenable_pin: !PB14\nmicrosteps: 16\nrotation_distance: 40\nendstop_pin: ^PC0\nposition_endstop: 0\nposition_max: ${x}\nhoming_speed: 50\n\n`;
             
-            config += `[printer]\nkinematics: ${kin}\nmax_velocity: 300\nmax_accel: 3000\n\n`;
-
-            config += `[board_pins]\naliases:\n    ${aliases}\n\n`;
-
-            // Standard Stepper Template (Using Aliases from the board file)
-            config += `[stepper_x]\nstep_pin: PB13\ndir_pin: !PB12\nenable_pin: !PB14\nmicrosteps: 16\nrotation_distance: 40\nendstop_pin: ^PC0\nposition_endstop: 0\nposition_max: ${x}\nhoming_speed: 50\n\n`;
-            
-            config += `[stepper_y]\nstep_pin: PB10\ndir_pin: !PB2\nenable_pin: !PB11\nmicrosteps: 16\nrotation_distance: 40\nendstop_pin: ^PC1\nposition_endstop: 0\nposition_max: ${y}\nhoming_speed: 50\n\n`;
-
-            if (bltouch) {
-                config += `[bltouch]\nsensor_pin: ^PC14\ncontrol_pin: PA1\nx_offset: -40\ny_offset: -10\nz_offset: 0\n\n`;
+            if(blt) {
+                cfg += `[bltouch]\nsensor_pin: ^PC14\ncontrol_pin: PA1\nx_offset: -40\ny_offset: -10\nz_offset: 0\n\n`;
             }
 
-            document.getElementById('output').value = config;
-
-        } catch (error) {
-            alert("Error generating config: " + error.message);
+            document.getElementById('output').value = cfg;
+        } catch (e) {
+            alert("Fetch failed. Make sure the file exists in /config-examples/");
         }
     }
 
-    function downloadConfig() {
-        const text = document.getElementById('output').value;
-        if (!text) return alert("Generate a config first!");
-        
-        const blob = new Blob([text], { type: 'text/plain' });
-        const element = document.createElement('a');
-        element.href = URL.createObjectURL(blob);
-        element.download = "printer.cfg";
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
+    function download() {
+        const blob = new Blob([document.getElementById('output').value], {type: 'text/plain'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "printer.cfg";
+        a.click();
     }
 </script>
-
 </body>
 </html>
