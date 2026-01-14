@@ -351,6 +351,49 @@
             border-radius: 50%;
             background: #64748b;
         }
+        
+        /* Option rows for homing/endstops */
+        .option-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background: #f8fafc;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+        
+        .option-label {
+            font-size: 0.85rem;
+            color: var(--text-main);
+        }
+        
+        .option-select {
+            width: auto;
+            min-width: 140px;
+            padding: 6px 10px;
+            font-size: 0.85rem;
+        }
+        
+        .option-input {
+            width: 80px;
+            padding: 6px 10px;
+            font-size: 0.85rem;
+            text-align: right;
+        }
+        
+        .option-subgroup {
+            margin-left: 15px;
+            padding-left: 10px;
+            border-left: 2px solid #e2e8f0;
+        }
+        
+        .option-hint {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin: 4px 0 0 0;
+            font-style: italic;
+        }
 
         @media (max-width: 900px) {
             .container { grid-template-columns: 1fr; }
@@ -401,11 +444,52 @@
         </div>
 
         <div class="group">
-            <label>Options</label>
-            <div class="checkbox-group">
-                <input type="checkbox" id="hasBLTouch">
-                <span>Use Probe as Z Endstop (BLTouch/Inductive/etc)</span>
+            <label>Homing & Endstops</label>
+            
+            <!-- Endstop Positions -->
+            <div class="option-row">
+                <span class="option-label">X Endstop Position</span>
+                <select id="endstopX" class="option-select">
+                    <option value="min" selected>Min (0)</option>
+                    <option value="max">Max</option>
+                </select>
             </div>
+            
+            <div class="option-row">
+                <span class="option-label">Y Endstop Position</span>
+                <select id="endstopY" class="option-select">
+                    <option value="min" selected>Min (0)</option>
+                    <option value="max">Max</option>
+                </select>
+            </div>
+            
+            <div class="option-row">
+                <span class="option-label">Z Endstop Type</span>
+                <select id="zEndstopType" class="option-select" onchange="updateZEndstopOptions()">
+                    <option value="switch_min">Switch at Min (bottom)</option>
+                    <option value="switch_max">Switch at Max (top)</option>
+                    <option value="probe">Probe (BLTouch/Inductive/etc)</option>
+                </select>
+            </div>
+            
+            <!-- Probe offset (shown only when probe is selected) -->
+            <div id="probeOffsetGroup" class="option-subgroup" style="display: none;">
+                <div class="option-row">
+                    <span class="option-label">Probe X Offset</span>
+                    <input type="number" id="probeOffsetX" value="-40" class="option-input" placeholder="mm">
+                </div>
+                <div class="option-row">
+                    <span class="option-label">Probe Y Offset</span>
+                    <input type="number" id="probeOffsetY" value="-10" class="option-input" placeholder="mm">
+                </div>
+            </div>
+            
+            <!-- Sensorless Homing -->
+            <div class="checkbox-group" style="margin-top: 10px;">
+                <input type="checkbox" id="sensorlessXY">
+                <span>Sensorless Homing (X/Y)</span>
+            </div>
+            <p class="option-hint">Uses TMC StallGuard instead of physical endstops. Requires TMC2209/2130/5160 drivers.</p>
         </div>
 
         <div class="group">

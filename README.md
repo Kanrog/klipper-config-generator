@@ -1,77 +1,114 @@
 # Klipper Config Generator
 
-A simple web tool to help you create configuration files for [Klipper](https://www.klipper3d.org/) 3D printer firmware.
+A web-based tool for generating Klipper 3D printer configuration files.
 
-![Status](https://img.shields.io/badge/Status-Work%20in%20Progress-yellow)
+---
+
+## WORK IN PROGRESS
+
+**This tool is under active development and is NOT ready for general use.**
+
+If you are new to Klipper or 3D printer firmware configuration, this tool is not yet suitable for you. Incorrect configuration can damage your printer or cause safety hazards. Please wait for a stable release or use the official Klipper documentation and example configs instead.
+
+If you are an experienced user and want to help test or contribute, you are welcome to try it out and provide feedback.
 
 ---
 
 ## What is this?
 
-Setting up Klipper for your 3D printer requires a `printer.cfg` file that tells the firmware about your hardware — things like which pins control your motors, heaters, fans, and sensors.
+Setting up Klipper for your 3D printer requires a `printer.cfg` file that tells the firmware about your hardware - things like which pins control your motors, heaters, fans, and sensors.
 
-This tool helps you **generate that config file** by:
+This tool helps you generate that config file by:
 
 1. Starting from a base config for your motherboard
 2. Letting you turn sections on or off with checkboxes
-3. Adjusting basic settings like bed size
+3. Adjusting settings like bed size, endstop positions, and homing options
 4. Giving you a ready-to-download `printer.cfg`
 
 ---
 
-## How to Use
+## Current Features
 
-1. **Pick your motherboard** from the dropdown (or upload your own config file)
-2. **Enter your bed dimensions** (X, Y, Z in mm)
-3. **Check the sections you want** — unchecked sections will be commented out
-4. **Click "Generate Config"** to preview
-5. **Click "Download"** to save your `printer.cfg`
-
----
-
-## Features
-
-- ✅ Recognizes all sections in a config, even commented-out ones
-- ✅ Toggle entire sections on/off with a checkbox
-- ✅ Sections organized by type (Steppers, Fans, Probing, etc.)
-- ✅ Search/filter motherboards
-- ✅ Upload your own `.cfg` file as a starting point
-- ✅ Automatic bed size adjustments
-- ✅ BLTouch/Probe support option
+- Recognizes all sections in a config, including commented-out ones
+- Toggle entire sections on/off with checkboxes
+- Sections organized by type (Steppers, Fans, Probing, etc.)
+- Search/filter motherboard list
+- Upload your own `.cfg` file as a starting point
+- Automatic bed size adjustments
+- Endstop position configuration (min/max for each axis)
+- Z probe support (BLTouch, inductive, etc.) with offset configuration
+- Sensorless homing option for X/Y axes
 
 ---
 
-## ⚠️ Important Notes
+## Roadmap
 
-- **Always verify your pins** before powering on motors or heaters! Incorrect pins can damage your printer.
-- This tool gives you a **starting point** — you'll likely need to fine-tune values like stepper currents, PID settings, and probe offsets.
-- The example configs are pulled from official Klipper sources but may not cover every board.
+The goal is to create a tool that generates complete, working configs that require no manual editing. Here are planned features and ideas for the future:
+
+### Short Term
+- [ ] More base configs for popular motherboards
+- [ ] Kinematics selection (Cartesian, CoreXY, Delta, etc.)
+- [ ] Dual Z stepper support
+- [ ] Extruder configuration (rotation distance calculator, pressure advance)
+- [ ] Input shaper defaults
+
+### Medium Term
+- [ ] Printer profile presets (Ender 3, Voron, Prusa, etc.)
+- [ ] MCU firmware compilation helper / instructions
+- [ ] Macro library (start/end gcode, pause/resume, etc.)
+- [ ] Validation warnings for incompatible settings
+
+### Long Term
+- [ ] Community config database - users can upload and share their working configs
+- [ ] Searchable printer list with configs tagged by printer model and features
+- [ ] Config diff/comparison tool
+- [ ] Import from Marlin configs
+
+### Ideas / Maybe
+- [ ] Visual pin mapping diagram
+- [ ] Integration with CANbus toolhead configs
+- [ ] Multi-MCU support
+- [ ] Built-in documentation links for each section
 
 ---
 
-## Want to Contribute?
+## Important Warnings
 
-This project is a work in progress! If you'd like to help out:
+- **Always verify your pin assignments** before powering on motors or heaters. Incorrect pins can damage your printer or start a fire.
+- This tool gives you a **starting point** - you will likely need to fine-tune values like stepper currents, PID settings, probe offsets, and rotation distances.
+- The example configs are based on official Klipper sources but may not cover every board revision or configuration.
+- **Test carefully.** Home each axis individually. Check motor directions. Verify endstops trigger correctly. Heat components slowly and monitor temperatures.
 
-- **Add more board configs** to the `config-examples` folder
-- **Report issues** or suggest features
-- **Get in touch** at [kanrog.github.io](https://kanrog.github.io/)
+---
+
+## Contributing
+
+This project needs help. If you want to contribute:
+
+- **Add board configs** to the `config-examples` folder
+- **Test and report issues** - especially edge cases and unusual setups
+- **Suggest features** or improvements
+- **Share your working configs** for inclusion in future database
+
+Get in touch: [kanrog.github.io](https://kanrog.github.io/)
 
 ---
 
 ## Files
 
 ```
-├── index.html          # The web interface
-├── app.js              # All the logic
-└── config-examples/    # Motherboard config files
+klipper-config-generator/
+├── index.html              # Web interface
+├── app.js                  # Application logic
+├── README.md               # This file
+└── config-examples/        # Motherboard config files
     ├── generic-bigtreetech-skr-mini-e3-v3.0.cfg
     ├── generic-bigtreetech-manta-m8p-v1.1.cfg
-    └── ... more boards
+    └── ...
 ```
 
 ---
 
 ## License
 
-Free to use and modify. If you find it helpful, a star ⭐ on the repo is appreciated!
+Free to use and modify. Contributions welcome.

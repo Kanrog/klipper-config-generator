@@ -350,21 +350,37 @@ function generate() {
         return;
     }
     
-    const x = document.getElementById('bedX').value;
-    const y = document.getElementById('bedY').value;
-    const z = document.getElementById('bedZ').value;
-    const blt = document.getElementById('hasBLTouch').checked;
+    // Get all settings
+    const settings = {
+        bedX: parseInt(document.getElementById('bedX').value) || 235,
+        bedY: parseInt(document.getElementById('bedY').value) || 235,
+        bedZ: parseInt(document.getElementById('bedZ').value) || 250,
+        endstopX: document.getElementById('endstopX').value,
+        endstopY: document.getElementById('endstopY').value,
+        zEndstopType: document.getElementById('zEndstopType').value,
+        probeOffsetX: parseInt(document.getElementById('probeOffsetX').value) || -40,
+        probeOffsetY: parseInt(document.getElementById('probeOffsetY').value) || -10,
+        sensorlessXY: document.getElementById('sensorlessXY').checked
+    };
     
     // Get selected section indices
     const selectedIndices = Array.from(
         document.querySelectorAll('#sections-container input[type="checkbox"]:checked')
     ).map(cb => parseInt(cb.value));
     
-    // Build the config
+    // Build the config header
     let cfg = `# Klipper Config Generator\n`;
     cfg += `# Base config: ${fileName}\n`;
     cfg += `# Generated: ${new Date().toLocaleString()}\n`;
     cfg += `# Sections: ${selectedIndices.length} of ${sections.length} enabled\n`;
+    cfg += `#\n`;
+    cfg += `# Settings:\n`;
+    cfg += `#   Bed: ${settings.bedX}x${settings.bedY}x${settings.bedZ}mm\n`;
+    cfg += `#   X Endstop: ${settings.endstopX}, Y Endstop: ${settings.endstopY}\n`;
+    cfg += `#   Z Endstop: ${settings.zEndstopType}\n`;
+    if (settings.sensorlessXY) {
+        cfg += `#   Sensorless Homing: Enabled (X/Y)\n`;
+    }
     cfg += `\n`;
     
     sections.forEach((section, index) => {
@@ -377,13 +393,11 @@ function generate() {
                 content = uncommentSection(content);
             }
             
-            // Apply bed dimension overrides for stepper sections
-            content = applyBedDimensions(content, section.name, x, y, z);
-            
-            // Handle BLTouch z endstop override
-            if (blt && section.name === 'stepper_z') {
-                content = applyBLTouchZEndstop(content);
-            }
+            // Apply modifications based on section type
+            content = applyBedDimensions(content, section.name, settings);
+            content = applyEndstopSettings(content, section.name, settings);
+            content = applySensorlessHoming(content, section.name, settings);
+            content = applyProbeSettings(content, section.name, settings);
             
             cfg += content + '\n\n';
         } else {
@@ -427,41 +441,188 @@ function commentSection(content) {
 /**
  * Apply bed dimension overrides to stepper sections
  */
-function applyBedDimensions(content, sectionName, x, y, z) {
+function applyBedDimensions(content, sectionName, settings) {
     const name = sectionName.toLowerCase();
+    const { bedX, bedY, bedZ, endstopX, endstopY } = settings;
     
     if (name === 'stepper_x') {
-        content = content.replace(/position_max:\s*\d+/, `position_max: ${x}`);
+        content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${bedX}`);
+        // Handle position_endstop based on endstop position
+        if (endstopX === 'max') {
+            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${bedX}`);
+        } else {
+            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: 0`);
+        }
     } else if (name === 'stepper_y') {
-        content = content.replace(/position_max:\s*\d+/, `position_max: ${y}`);
+        content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${bedY}`);
+        if (endstopY === 'max') {
+            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${bedY}`);
+        } else {
+            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: 0`);
+        }
     } else if (name === 'stepper_z') {
-        content = content.replace(/position_max:\s*\d+/, `position_max: ${z}`);
+        content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${bedZ}`);
     } else if (name === 'safe_z_home') {
         // Center the safe z home position
-        const centerX = Math.round(x / 2);
-        const centerY = Math.round(y / 2);
+        const centerX = Math.round(bedX / 2);
+        const centerY = Math.round(bedY / 2);
         content = content.replace(/home_xy_position:\s*[\d.]+\s*,\s*[\d.]+/, `home_xy_position: ${centerX}, ${centerY}`);
     } else if (name === 'bed_mesh') {
         // Update bed mesh bounds
-        content = content.replace(/mesh_max:\s*[\d.]+\s*,\s*[\d.]+/, `mesh_max: ${x - 10}, ${y - 10}`);
+        content = content.replace(/mesh_max:\s*[\d.]+\s*,\s*[\d.]+/, `mesh_max: ${bedX - 10}, ${bedY - 10}`);
     }
     
     return content;
 }
 
 /**
- * Apply BLTouch z virtual endstop
+ * Apply endstop settings (position and homing direction)
  */
-function applyBLTouchZEndstop(content) {
-    // Replace physical endstop with probe virtual endstop
-    content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: probe:z_virtual_endstop');
-    // Comment out position_endstop if present
-    content = content.replace(/^(position_endstop:.*)$/m, '#$1  # Disabled for probe');
-    // Add position_min if not present
-    if (!content.includes('position_min')) {
-        content = content.replace(/(position_max:.*)/, '$1\nposition_min: -2');
+function applyEndstopSettings(content, sectionName, settings) {
+    const name = sectionName.toLowerCase();
+    const { endstopX, endstopY, zEndstopType, bedZ } = settings;
+    
+    // Handle X stepper endstop
+    if (name === 'stepper_x') {
+        if (endstopX === 'max') {
+            // Homing to max position
+            content = content.replace(/homing_positive_dir:\s*(true|false)/i, 'homing_positive_dir: true');
+            if (!content.includes('homing_positive_dir')) {
+                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
+            }
+        } else {
+            // Homing to min (default) - remove homing_positive_dir if present
+            content = content.replace(/\nhoming_positive_dir:.*$/m, '');
+        }
     }
+    
+    // Handle Y stepper endstop  
+    if (name === 'stepper_y') {
+        if (endstopY === 'max') {
+            content = content.replace(/homing_positive_dir:\s*(true|false)/i, 'homing_positive_dir: true');
+            if (!content.includes('homing_positive_dir')) {
+                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
+            }
+        } else {
+            content = content.replace(/\nhoming_positive_dir:.*$/m, '');
+        }
+    }
+    
+    // Handle Z stepper endstop
+    if (name === 'stepper_z') {
+        if (zEndstopType === 'probe') {
+            // Use probe as endstop
+            content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: probe:z_virtual_endstop');
+            // Comment out position_endstop
+            content = content.replace(/^(position_endstop:.*)$/m, '#$1  # Disabled - using probe');
+            // Add position_min for probing below 0
+            if (!content.includes('position_min')) {
+                content = content.replace(/(position_max:.*)/, '$1\nposition_min: -5');
+            }
+        } else if (zEndstopType === 'switch_max') {
+            // Endstop at top
+            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${bedZ}`);
+            content = content.replace(/homing_positive_dir:\s*(true|false)/i, 'homing_positive_dir: true');
+            if (!content.includes('homing_positive_dir')) {
+                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
+            }
+        } else {
+            // switch_min - default, endstop at bottom
+            content = content.replace(/position_endstop:\s*[\d.]+/, 'position_endstop: 0');
+            content = content.replace(/\nhoming_positive_dir:.*$/m, '');
+        }
+    }
+    
     return content;
+}
+
+/**
+ * Apply sensorless homing configuration
+ */
+function applySensorlessHoming(content, sectionName, settings) {
+    const name = sectionName.toLowerCase();
+    const { sensorlessXY, endstopX, endstopY } = settings;
+    
+    if (!sensorlessXY) return content;
+    
+    // Apply to stepper_x
+    if (name === 'stepper_x') {
+        // Change endstop pin to use TMC virtual endstop
+        content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: tmc2209_stepper_x:virtual_endstop');
+        // Add homing_retract_dist: 0 for sensorless
+        if (!content.includes('homing_retract_dist')) {
+            content = content.replace(/(homing_speed:.*)/, '$1\nhoming_retract_dist: 0');
+        } else {
+            content = content.replace(/homing_retract_dist:\s*[\d.]+/, 'homing_retract_dist: 0');
+        }
+    }
+    
+    // Apply to stepper_y
+    if (name === 'stepper_y') {
+        content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: tmc2209_stepper_y:virtual_endstop');
+        if (!content.includes('homing_retract_dist')) {
+            content = content.replace(/(homing_speed:.*)/, '$1\nhoming_retract_dist: 0');
+        } else {
+            content = content.replace(/homing_retract_dist:\s*[\d.]+/, 'homing_retract_dist: 0');
+        }
+    }
+    
+    // Enable diag_pin in TMC sections
+    if (name === 'tmc2209 stepper_x' || name === 'tmc2209 stepper_y') {
+        // Uncomment diag_pin if it's commented
+        content = content.replace(/^#+(diag_pin:.*)$/m, '$1');
+        // Add driver_SGTHRS if not present (StallGuard threshold)
+        if (!content.includes('driver_SGTHRS')) {
+            content = content.replace(/(run_current:.*)/, '$1\ndriver_SGTHRS: 100  # Adjust 0-255, higher = more sensitive');
+        }
+    }
+    
+    return content;
+}
+
+/**
+ * Apply probe settings (offsets, safe_z_home, etc.)
+ */
+function applyProbeSettings(content, sectionName, settings) {
+    const name = sectionName.toLowerCase();
+    const { zEndstopType, probeOffsetX, probeOffsetY, bedX, bedY } = settings;
+    
+    if (zEndstopType !== 'probe') return content;
+    
+    // Update BLTouch/probe offsets
+    if (name === 'bltouch' || name === 'probe') {
+        content = content.replace(/x_offset:\s*[-\d.]+/, `x_offset: ${probeOffsetX}`);
+        content = content.replace(/y_offset:\s*[-\d.]+/, `y_offset: ${probeOffsetY}`);
+    }
+    
+    // Update safe_z_home to account for probe offset
+    if (name === 'safe_z_home') {
+        // Calculate safe home position (probe must be over bed)
+        let homeX = Math.round(bedX / 2);
+        let homeY = Math.round(bedY / 2);
+        
+        // Adjust if probe offset would put it off the bed
+        homeX = Math.max(Math.abs(probeOffsetX), Math.min(homeX, bedX - Math.abs(probeOffsetX)));
+        homeY = Math.max(Math.abs(probeOffsetY), Math.min(homeY, bedY - Math.abs(probeOffsetY)));
+        
+        content = content.replace(/home_xy_position:\s*[\d.]+\s*,\s*[\d.]+/, `home_xy_position: ${homeX}, ${homeY}`);
+    }
+    
+    return content;
+}
+
+/**
+ * Show/hide probe offset inputs based on Z endstop type
+ */
+function updateZEndstopOptions() {
+    const zType = document.getElementById('zEndstopType').value;
+    const probeGroup = document.getElementById('probeOffsetGroup');
+    
+    if (zType === 'probe') {
+        probeGroup.style.display = 'block';
+    } else {
+        probeGroup.style.display = 'none';
+    }
 }
 
 /**
