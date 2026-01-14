@@ -8,6 +8,7 @@
         :root {
             --primary: #2563eb;
             --success: #10b981;
+            --warning: #f59e0b;
             --bg: #f8fafc;
             --card: #ffffff;
             --text-main: #1e293b;
@@ -22,14 +23,37 @@
             margin: 0;
             padding: 20px;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .notice {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            max-width: 1200px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.9rem;
+        }
+        
+        .notice a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .notice a:hover {
+            text-decoration: underline;
         }
 
         .container {
             width: 100%;
             max-width: 1200px;
             display: grid;
-            grid-template-columns: 380px 1fr;
+            grid-template-columns: 400px 1fr;
             gap: 25px;
         }
 
@@ -42,18 +66,38 @@
             flex-direction: column;
         }
 
-        h2 { margin-top: 0; font-size: 1.25rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 20px; }
+        h2 { 
+            margin-top: 0; 
+            font-size: 1.25rem; 
+            border-bottom: 2px solid #f1f5f9; 
+            padding-bottom: 10px; 
+            margin-bottom: 20px; 
+        }
 
         .group { margin-bottom: 18px; }
-        label { display: block; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+        
+        label { 
+            display: block; 
+            font-size: 0.8rem; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--text-muted); 
+            margin-bottom: 6px; 
+        }
 
-        select, input {
+        select, input[type="text"], input[type="number"] {
             width: 100%;
             padding: 10px;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
             font-size: 0.95rem;
             box-sizing: border-box;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -100,28 +144,255 @@
             outline: none;
         }
 
-        @media (max-width: 850px) {
+        /* Board selector with search */
+        .board-selector {
+            position: relative;
+        }
+        
+        .board-search {
+            margin-bottom: 8px;
+        }
+        
+        .board-search input {
+            padding-left: 32px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: 8px center;
+            background-size: 18px;
+        }
+        
+        /* File upload styling */
+        .upload-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #cbd5e1;
+        }
+        
+        .upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        
+        .upload-label:hover {
+            border-color: var(--primary);
+            background: #eff6ff;
+            color: var(--primary);
+        }
+        
+        .upload-label input[type="file"] {
+            display: none;
+        }
+        
+        .upload-label svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        #uploadedFileName {
+            display: none;
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #047857;
+        }
+
+        /* Sections container styling */
+        .sections-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .sections-header label {
+            margin-bottom: 0;
+        }
+        
+        .sections-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #sectionCount {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+        
+        .sections-toggle-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .sections-toggle-buttons button {
+            width: auto;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            margin: 0;
+            background: #e2e8f0;
+            color: var(--text-main);
+        }
+        
+        .sections-toggle-buttons button:hover {
+            background: #cbd5e1;
+        }
+
+        #sections-container {
+            max-height: 350px;
+            overflow-y: auto;
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 6px;
+        }
+        
+        #sections-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #sections-container::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 4px;
+        }
+        
+        #sections-container::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        
+        #sections-container::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Section category headers */
+        .section-category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 0.75rem;
+            color: #475569;
+            margin: 12px 0 6px 0;
+            text-transform: uppercase;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 4px;
+        }
+        
+        .section-category-header:first-child {
+            margin-top: 0;
+        }
+        
+        .category-toggle {
+            cursor: pointer;
+            opacity: 0.6;
+            font-size: 1rem;
+            user-select: none;
+        }
+        
+        .category-toggle:hover {
+            opacity: 1;
+        }
+        
+        /* Section items */
+        .section-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+        }
+        
+        .section-item input[type="checkbox"] {
+            width: auto;
+            cursor: pointer;
+            margin: 0;
+        }
+        
+        .section-item label {
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin: 0;
+            text-transform: none;
+            font-weight: normal;
+            color: var(--text-main);
+        }
+        
+        .section-item label.originally-commented {
+            color: #64748b;
+            font-style: italic;
+        }
+        
+        /* Legend for commented sections */
+        .sections-legend {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .legend-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #64748b;
+        }
+
+        @media (max-width: 900px) {
             .container { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-<p>This is a work in progress and not meant for public use at this point!
-If you want to contribute, please get in touch with me. (https://kanrog.github.io/)</p>
+
+<div class="notice">
+    ⚠️ <strong>Work in Progress</strong> — This tool is under active development and not meant for public use yet. 
+    Want to contribute? <a href="https://kanrog.github.io/" target="_blank">Get in touch!</a>
+</div>
 
 <div class="container">
     <div class="panel">
         <h2>🛠️ Printer Settings</h2>
         
         <div class="group">
-            <label>Motherboard</label>
-            <select id="boardSelect">
-                <option>Loading from GitHub...</option>
-            </select>
+            <label>Motherboard / Base Config</label>
+            <div class="board-selector">
+                <div class="board-search">
+                    <input type="text" id="boardSearch" placeholder="Loading..." disabled oninput="filterBoards()">
+                </div>
+                <select id="boardSelect">
+                    <option>Loading from GitHub...</option>
+                </select>
+            </div>
+            
+            <div class="upload-section">
+                <label class="upload-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span>Or upload your own .cfg file</span>
+                    <input type="file" id="fileUpload" accept=".cfg" onchange="handleFileUpload(event)">
+                </label>
+                <div id="uploadedFileName"></div>
+            </div>
         </div>
 
         <div class="group">
-            <label>Bed Dimensions (X / Y / Z)</label>
+            <label>Bed Dimensions (X / Y / Z mm)</label>
             <div class="grid-3">
                 <input type="number" id="bedX" value="235" placeholder="X">
                 <input type="number" id="bedY" value="235" placeholder="Y">
@@ -133,14 +404,29 @@ If you want to contribute, please get in touch with me. (https://kanrog.github.i
             <label>Options</label>
             <div class="checkbox-group">
                 <input type="checkbox" id="hasBLTouch">
-                <span>Include BLTouch / Probe</span>
+                <span>Use Probe as Z Endstop (BLTouch/Inductive/etc)</span>
             </div>
         </div>
 
         <div class="group">
-            <label>Sections</label>
-            <div id="sections-container" style="max-height: 200px; overflow-y: auto; background: #f1f5f9; padding: 10px; border-radius: 6px;">
-                <!-- Dynamically generated checkboxes will appear here -->
+            <div class="sections-header">
+                <label>Config Sections</label>
+                <div class="sections-controls">
+                    <span id="sectionCount">0/0</span>
+                    <div class="sections-toggle-buttons">
+                        <button type="button" onclick="toggleAllSections(true)">All</button>
+                        <button type="button" onclick="toggleAllSections(false)">None</button>
+                    </div>
+                </div>
+            </div>
+            <div id="sections-container">
+                <div style="color: #64748b; font-size: 0.85rem; padding: 20px; text-align: center;">
+                    Select a motherboard or upload a config file to view sections...
+                </div>
+            </div>
+            <div class="sections-legend">
+                <span class="legend-dot"></span>
+                <span>Gray italic = commented out in original config (disabled by default)</span>
             </div>
         </div>
 
@@ -148,17 +434,24 @@ If you want to contribute, please get in touch with me. (https://kanrog.github.i
         <button class="btn-download" onclick="download()">Download printer.cfg</button>
 
         <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 20px;">
-            Note: This tool scrapes pins from your <code>/config-examples</code> folder. Always verify pins before first move.
+            💡 <strong>Tip:</strong> Enable sections by checking them, disable by unchecking. 
+            Disabled sections will be commented out in the output. Always verify pins before first move!
         </p>
     </div>
 
     <div class="panel">
         <h2>📄 printer.cfg Preview</h2>
-        <textarea id="output" readonly placeholder="Your generated configuration will appear here..."></textarea>
+        <textarea id="output" readonly placeholder="Your generated configuration will appear here...
+
+1. Select a motherboard from the dropdown (or upload your own config)
+2. Adjust bed dimensions if needed
+3. Enable/disable sections using the checkboxes
+4. Click 'Generate Config' to preview
+5. Click 'Download' to save your printer.cfg"></textarea>
     </div>
 </div>
 
-<script src="dynamic_sections.js"></script>
+<!-- Only need app.js now - it includes all the section parsing logic -->
 <script src="app.js"></script>
 
 </body>

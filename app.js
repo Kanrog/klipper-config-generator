@@ -2,13 +2,25 @@ const REPO_OWNER = "Kanrog";
 const REPO_NAME = "klipper-config-generator";
 const CONFIG_FOLDER = "config-examples";
 
-// 1. Fetch board list from your GitHub Repo
+// Store the current config data globally
+window.currentConfigData = {
+    raw: '',
+    sections: [],
+    fileName: ''
+};
+
+// 1. Fetch board list from GitHub Repo and populate searchable dropdown
 window.onload = async () => {
     const select = document.getElementById('boardSelect');
+    const searchInput = document.getElementById('boardSearch');
+    
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${CONFIG_FOLDER}`);
         const files = await response.json();
 
+        // Store all options for filtering
+        window.boardOptions = [];
+        
         select.innerHTML = '';
         files.forEach(file => {
             if (file.name.endsWith('.cfg')) {
@@ -20,137 +32,470 @@ window.onload = async () => {
                     .replace(/-/g, ' ')
                     .toUpperCase();
                 select.appendChild(option);
+                
+                window.boardOptions.push({
+                    value: file.name,
+                    text: option.textContent
+                });
             }
         });
+        
+        // Enable search input
+        searchInput.disabled = false;
+        searchInput.placeholder = 'Search boards...';
+        
+        // Load sections for the first board
+        if (select.value) {
+            loadConfigFromRepo(select.value);
+        }
+        
     } catch (err) {
         select.innerHTML = '<option>Error loading repo files</option>';
         console.error(err);
     }
 };
 
-// 2. Main Logic: Scrape and Generate
-async function generate() {
-    const boardFile = document.getElementById('boardSelect').value;
+// Board search/filter functionality
+function filterBoards() {
+    const searchInput = document.getElementById('boardSearch');
+    const select = document.getElementById('boardSelect');
+    const filter = searchInput.value.toLowerCase();
+    
+    if (!window.boardOptions) return;
+    
+    select.innerHTML = '';
+    
+    const filtered = window.boardOptions.filter(opt => 
+        opt.text.toLowerCase().includes(filter) || 
+        opt.value.toLowerCase().includes(filter)
+    );
+    
+    if (filtered.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = 'No matching boards found';
+        option.disabled = true;
+        select.appendChild(option);
+    } else {
+        filtered.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.text;
+            select.appendChild(option);
+        });
+    }
+}
+
+// Load config from GitHub repo
+async function loadConfigFromRepo(fileName) {
+    try {
+        const response = await fetch(`./${CONFIG_FOLDER}/${fileName}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.status}`);
+        }
+        const configText = await response.text();
+        processConfig(configText, fileName);
+    } catch (error) {
+        console.error('Error loading config:', error);
+        alert('Error loading config file. Check console for details.');
+    }
+}
+
+// Handle user-uploaded config file
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.name.endsWith('.cfg')) {
+        alert('Please upload a .cfg file');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const configText = e.target.result;
+        processConfig(configText, file.name);
+        
+        // Update UI to show uploaded file
+        document.getElementById('uploadedFileName').textContent = `Loaded: ${file.name}`;
+        document.getElementById('uploadedFileName').style.display = 'block';
+        
+        // Add to board options temporarily
+        const select = document.getElementById('boardSelect');
+        const option = document.createElement('option');
+        option.value = '__uploaded__';
+        option.textContent = `📁 ${file.name} (uploaded)`;
+        option.selected = true;
+        select.insertBefore(option, select.firstChild);
+    };
+    reader.readAsText(file);
+}
+
+// Process config text (from repo or upload)
+function processConfig(configText, fileName) {
+    const sections = parseConfigSections(configText);
+    
+    window.currentConfigData = {
+        raw: configText,
+        sections: sections,
+        fileName: fileName
+    };
+    
+    renderSectionCheckboxes(sections);
+}
+
+/**
+ * Parse ALL sections from config, extracting full content
+ * Handles both [section] and #[section] (commented)
+ */
+function parseConfigSections(configText) {
+    const sections = [];
+    const lines = configText.split('\n');
+    const sectionRegex = /^(\s*#\s*)?\[([^\]]+)\]/;
+    
+    let currentSection = null;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const match = line.match(sectionRegex);
+        
+        if (match) {
+            // Save previous section
+            if (currentSection) {
+                currentSection.endLine = i - 1;
+                currentSection.content = extractSectionContent(lines, currentSection.startLine, currentSection.endLine);
+                sections.push(currentSection);
+            }
+            
+            const isCommented = !!match[1];
+            const sectionName = match[2].trim();
+            
+            currentSection = {
+                name: sectionName,
+                enabled: !isCommented,
+                startLine: i,
+                endLine: null,
+                content: null,
+                originallyCommented: isCommented
+            };
+        }
+    }
+    
+    // Don't forget the last section
+    if (currentSection) {
+        currentSection.endLine = lines.length - 1;
+        currentSection.content = extractSectionContent(lines, currentSection.startLine, currentSection.endLine);
+        sections.push(currentSection);
+    }
+    
+    return sections;
+}
+
+/**
+ * Extract the raw content of a section (including the header)
+ */
+function extractSectionContent(lines, startLine, endLine) {
+    // Trim trailing empty lines
+    while (endLine > startLine && lines[endLine].trim() === '') {
+        endLine--;
+    }
+    return lines.slice(startLine, endLine + 1).join('\n');
+}
+
+/**
+ * Categorize sections for UI grouping
+ */
+function categorizeSection(sectionName) {
+    const name = sectionName.toLowerCase();
+    
+    if (name.startsWith('stepper_')) return 'Steppers';
+    if (name.startsWith('tmc2209') || name.startsWith('tmc2130') || name.startsWith('tmc5160') || name.startsWith('tmc2208')) return 'TMC Drivers';
+    if (name.includes('extruder')) return 'Extruders';
+    if (name.includes('fan') || name === 'fan') return 'Fans';
+    if (name.includes('heater') || name === 'heater_bed') return 'Heaters';
+    if (name.includes('probe') || name === 'bltouch' || name === 'safe_z_home' || name === 'bed_mesh') return 'Probing';
+    if (name.includes('sensor') || name === 'adxl345' || name.includes('resonance')) return 'Sensors';
+    if (name.includes('neopixel') || name.includes('led') || name.includes('dotstar')) return 'Lighting';
+    if (name === 'mcu' || name.startsWith('mcu ')) return 'MCU';
+    if (name === 'printer' || name === 'board_pins' || name === 'virtual_sdcard' || name === 'display') return 'Core';
+    if (name.includes('output_pin') || name.includes('pin')) return 'Pins';
+    if (name.includes('gcode_macro') || name.includes('macro')) return 'Macros';
+    if (name.includes('menu')) return 'Menu';
+    
+    return 'Other';
+}
+
+/**
+ * Render section checkboxes in the UI, grouped by category
+ */
+function renderSectionCheckboxes(sections) {
+    const container = document.getElementById('sections-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (sections.length === 0) {
+        container.innerHTML = '<div style="color: #ef4444;">No sections found in config file.</div>';
+        return;
+    }
+    
+    // Group by category
+    const categories = {};
+    sections.forEach((section, index) => {
+        const category = categorizeSection(section.name);
+        if (!categories[category]) {
+            categories[category] = [];
+        }
+        categories[category].push({ ...section, index });
+    });
+    
+    // Category render order
+    const categoryOrder = [
+        'Core', 'MCU', 'Steppers', 'TMC Drivers', 'Extruders', 
+        'Heaters', 'Fans', 'Probing', 'Sensors', 'Lighting', 'Pins', 'Macros', 'Menu', 'Other'
+    ];
+    
+    categoryOrder.forEach(category => {
+        if (!categories[category] || categories[category].length === 0) return;
+        
+        // Category header with toggle
+        const header = document.createElement('div');
+        header.className = 'section-category-header';
+        header.innerHTML = `
+            <span>${category}</span>
+            <span class="category-toggle" onclick="toggleCategory('${category}')" title="Toggle all in category">⊟</span>
+        `;
+        container.appendChild(header);
+        
+        // Section checkboxes
+        categories[category].forEach(section => {
+            const div = document.createElement('div');
+            div.className = 'section-item';
+            div.dataset.category = category;
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `section-${section.index}`;
+            checkbox.value = section.index;
+            checkbox.checked = section.enabled;
+            checkbox.dataset.sectionName = section.name;
+            
+            const label = document.createElement('label');
+            label.htmlFor = `section-${section.index}`;
+            label.textContent = section.name;
+            
+            if (section.originallyCommented) {
+                label.classList.add('originally-commented');
+                label.title = 'Commented out in original config';
+            }
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            container.appendChild(div);
+        });
+    });
+    
+    // Update section count
+    updateSectionCount();
+}
+
+/**
+ * Toggle all sections in a category
+ */
+function toggleCategory(category) {
+    const items = document.querySelectorAll(`.section-item[data-category="${category}"] input[type="checkbox"]`);
+    const allChecked = Array.from(items).every(cb => cb.checked);
+    items.forEach(cb => cb.checked = !allChecked);
+    updateSectionCount();
+}
+
+/**
+ * Toggle all sections on/off
+ */
+function toggleAllSections(enabled) {
+    const checkboxes = document.querySelectorAll('#sections-container input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = enabled);
+    updateSectionCount();
+}
+
+/**
+ * Update the section count display
+ */
+function updateSectionCount() {
+    const total = document.querySelectorAll('#sections-container input[type="checkbox"]').length;
+    const checked = document.querySelectorAll('#sections-container input[type="checkbox"]:checked').length;
+    const countEl = document.getElementById('sectionCount');
+    if (countEl) {
+        countEl.textContent = `${checked}/${total} sections enabled`;
+    }
+}
+
+// Add event listener for checkbox changes
+document.addEventListener('change', (e) => {
+    if (e.target.matches('#sections-container input[type="checkbox"]')) {
+        updateSectionCount();
+    }
+});
+
+/**
+ * MAIN GENERATE FUNCTION
+ * Builds the config based on selected sections
+ */
+function generate() {
+    const sections = window.currentConfigData.sections;
+    const fileName = window.currentConfigData.fileName;
+    
+    if (!sections || sections.length === 0) {
+        alert('Please select a board or upload a config file first.');
+        return;
+    }
+    
     const x = document.getElementById('bedX').value;
     const y = document.getElementById('bedY').value;
     const z = document.getElementById('bedZ').value;
     const blt = document.getElementById('hasBLTouch').checked;
-    const selectedSections = Array.from(document.querySelectorAll('#sections-container input[type="checkbox"]:checked')).map(cb => cb.value);
-
-    try {
-        const response = await fetch(`./${CONFIG_FOLDER}/${boardFile}`);
-        const raw = await response.text();
-
-        // The Scraper Function
-        const getPin = (section, key, fallback = "PA0_FIXME") => {
-            const regex = new RegExp(`\\[${section}\\][\\s\\S]*?${key}:\\s*(\\S+)`, 'i');
-            const match = raw.match(regex);
-            return match ? match[1] : fallback;
-        };
-
-        let cfg = `# Klipper Config | Generated for ${boardFile}\n`;
-        cfg += `# Date: ${new Date().toLocaleDateString()}\n\n`;
-
-        if (selectedSections.includes('mcu')) {
-            cfg += `[mcu]\nserial: /dev/serial/by-id/usb-Klipper_REPLACE_ME\n\n`;
-        }
-
-        if (selectedSections.includes('printer')) {
-            cfg += `[printer]\nkinematics: cartesian\nmax_velocity: 300\nmax_accel: 3000\nmax_z_velocity: 5\nmax_z_accel: 100\n\n`;
-        }
-
-        // Pull Aliases if they exist
-        if (selectedSections.includes('board_pins')) {
-            const aliasMatch = raw.match(/\[board_pins\][\s\S]*?aliases:([\s\S]*?)(?=\n\[|$)/);
-            if (aliasMatch) {
-                cfg += `[board_pins]\naliases:\n    ${aliasMatch[1].trim()}\n\n`;
+    
+    // Get selected section indices
+    const selectedIndices = Array.from(
+        document.querySelectorAll('#sections-container input[type="checkbox"]:checked')
+    ).map(cb => parseInt(cb.value));
+    
+    // Build the config
+    let cfg = `# Klipper Config Generator\n`;
+    cfg += `# Base config: ${fileName}\n`;
+    cfg += `# Generated: ${new Date().toLocaleString()}\n`;
+    cfg += `# Sections: ${selectedIndices.length} of ${sections.length} enabled\n`;
+    cfg += `\n`;
+    
+    sections.forEach((section, index) => {
+        const isSelected = selectedIndices.includes(index);
+        let content = section.content;
+        
+        if (isSelected) {
+            // UNCOMMENT the section if it was originally commented
+            if (section.originallyCommented) {
+                content = uncommentSection(content);
             }
-        }
-
-        // Steppers X, Y, Z
-        const axes = [
-            { id: 'x', max: x, stop: 'endstop_pin' },
-            { id: 'y', max: y, stop: 'endstop_pin' },
-            { id: 'z', max: z, stop: 'endstop_pin' }
-        ];
-
-        axes.forEach(axis => {
-            const s = `stepper_${axis.id}`;
-            if (selectedSections.includes(s)) {
-                cfg += `[${s}]\n`;
-                cfg += `step_pin: ${getPin(s, 'step_pin')}\n`;
-                cfg += `dir_pin: ${getPin(s, 'dir_pin')}\n`;
-                cfg += `enable_pin: ${getPin(s, 'enable_pin')}\n`;
-                cfg += `microsteps: 16\nrotation_distance: 40\n`;
-
-                if (axis.id === 'z' && blt && selectedSections.includes('bltouch')) {
-                    cfg += `endstop_pin: probe:z_virtual_endstop\n`;
-                    cfg += `position_min: -2\n`;
-                } else {
-                    cfg += `endstop_pin: ${getPin(s, axis.stop)}\n`;
-                    cfg += `position_endstop: 0\n`;
-                }
-                cfg += `position_max: ${axis.max}\nhoming_speed: 50\n\n`;
+            
+            // Apply bed dimension overrides for stepper sections
+            content = applyBedDimensions(content, section.name, x, y, z);
+            
+            // Handle BLTouch z endstop override
+            if (blt && section.name === 'stepper_z') {
+                content = applyBLTouchZEndstop(content);
             }
-        });
-
-        // Extruder
-        if (selectedSections.includes('extruder')) {
-            cfg += `[extruder]\n`;
-            cfg += `step_pin: ${getPin('extruder', 'step_pin')}\n`;
-            cfg += `dir_pin: ${getPin('extruder', 'dir_pin')}\n`;
-            cfg += `enable_pin: ${getPin('extruder', 'enable_pin')}\n`;
-            cfg += `microsteps: 16\nrotation_distance: 33.500\nnozzle_diameter: 0.400\nfilament_diameter: 1.750\n`;
-            cfg += `heater_pin: ${getPin('extruder', 'heater_pin')}\n`;
-            cfg += `sensor_type: EPCOS 100K B57560G104F\n`;
-            cfg += `sensor_pin: ${getPin('extruder', 'sensor_pin')}\n`;
-            cfg += `control: pid\npid_Kp: 22.2\npid_Ki: 1.08\npid_Kd: 114\nmin_temp: 0\nmax_temp: 250\n\n`;
-        }
-
-        // Bed
-        if (selectedSections.includes('heater_bed')) {
-            cfg += `[heater_bed]\n`;
-            cfg += `heater_pin: ${getPin('heater_bed', 'heater_pin')}\n`;
-            cfg += `sensor_type: ATC Semitec 104GT-2\n`;
-            cfg += `sensor_pin: ${getPin('heater_bed', 'sensor_pin')}\n`;
-            cfg += `control: watermark\nmin_temp: 0\nmax_temp: 130\n\n`;
-        }
-
-        // Fans
-        if (selectedSections.includes('fan')) {
-            cfg += `[fan]\npin: ${getPin('fan', 'pin')}\n\n`;
-        }
-        if (selectedSections.includes('controller_fan')) {
-            cfg += `[controller_fan]\npin: ${getPin('controller_fan', 'pin', 'PA0_FIXME')}\n\n`;
-        }
-
-        // BLTouch Logic is conditional on master switch AND individual checkboxes
-        if (blt) {
-            if (selectedSections.includes('bltouch')) {
-                const s_pin = getPin('bltouch', 'sensor_pin', getPin('probe', 'pin', 'PC14'));
-                const c_pin = getPin('bltouch', 'control_pin', 'PA1');
-                cfg += `[bltouch]\nsensor_pin: ${s_pin}\ncontrol_pin: ${c_pin}\nx_offset: -40\ny_offset: -10\nz_offset: 0\n\n`;
+            
+            cfg += content + '\n\n';
+        } else {
+            // COMMENT OUT the section if it was originally enabled
+            if (!section.originallyCommented) {
+                content = commentSection(content);
             }
-            if (selectedSections.includes('safe_z_home')) {
-                cfg += `[safe_z_home]\nhome_xy_position: ${x/2}, ${y/2}\nspeed: 50\nz_hop: 10\n\n`;
-            }
+            cfg += content + '\n\n';
         }
-
-        document.getElementById('output').value = cfg;
-
-    } catch (error) {
-        console.error(error);
-        alert("Error generating config. Check if file exists in /config-examples/");
-    }
+    });
+    
+    // Clean up excessive blank lines
+    cfg = cfg.replace(/\n{3,}/g, '\n\n');
+    
+    document.getElementById('output').value = cfg;
 }
 
-// 3. Download function
+/**
+ * Uncomment a section (remove leading # from all lines)
+ */
+function uncommentSection(content) {
+    return content.split('\n').map(line => {
+        // Remove leading # and optional space
+        return line.replace(/^#\s?/, '');
+    }).join('\n');
+}
+
+/**
+ * Comment out a section (add # to all lines)
+ */
+function commentSection(content) {
+    return content.split('\n').map(line => {
+        // Don't double-comment
+        if (line.trim().startsWith('#') || line.trim() === '') {
+            return line;
+        }
+        return '#' + line;
+    }).join('\n');
+}
+
+/**
+ * Apply bed dimension overrides to stepper sections
+ */
+function applyBedDimensions(content, sectionName, x, y, z) {
+    const name = sectionName.toLowerCase();
+    
+    if (name === 'stepper_x') {
+        content = content.replace(/position_max:\s*\d+/, `position_max: ${x}`);
+    } else if (name === 'stepper_y') {
+        content = content.replace(/position_max:\s*\d+/, `position_max: ${y}`);
+    } else if (name === 'stepper_z') {
+        content = content.replace(/position_max:\s*\d+/, `position_max: ${z}`);
+    } else if (name === 'safe_z_home') {
+        // Center the safe z home position
+        const centerX = Math.round(x / 2);
+        const centerY = Math.round(y / 2);
+        content = content.replace(/home_xy_position:\s*[\d.]+\s*,\s*[\d.]+/, `home_xy_position: ${centerX}, ${centerY}`);
+    } else if (name === 'bed_mesh') {
+        // Update bed mesh bounds
+        content = content.replace(/mesh_max:\s*[\d.]+\s*,\s*[\d.]+/, `mesh_max: ${x - 10}, ${y - 10}`);
+    }
+    
+    return content;
+}
+
+/**
+ * Apply BLTouch z virtual endstop
+ */
+function applyBLTouchZEndstop(content) {
+    // Replace physical endstop with probe virtual endstop
+    content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: probe:z_virtual_endstop');
+    // Comment out position_endstop if present
+    content = content.replace(/^(position_endstop:.*)$/m, '#$1  # Disabled for probe');
+    // Add position_min if not present
+    if (!content.includes('position_min')) {
+        content = content.replace(/(position_max:.*)/, '$1\nposition_min: -2');
+    }
+    return content;
+}
+
+/**
+ * Download the generated config
+ */
 function download() {
     const text = document.getElementById('output').value;
-    if (!text) return alert("Please generate a config first.");
+    if (!text) {
+        alert('Please generate a config first.');
+        return;
+    }
+    
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = "printer.cfg";
+    a.download = 'printer.cfg';
     a.click();
+    URL.revokeObjectURL(a.href);
 }
+
+/**
+ * Board selection change handler
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    const boardSelect = document.getElementById('boardSelect');
+    
+    boardSelect.addEventListener('change', () => {
+        const selected = boardSelect.value;
+        if (selected && selected !== '__uploaded__' && !selected.includes('Error') && !selected.includes('Loading')) {
+            // Hide uploaded file indicator
+            const uploadedEl = document.getElementById('uploadedFileName');
+            if (uploadedEl) uploadedEl.style.display = 'none';
+            
+            loadConfigFromRepo(selected);
+        }
+    });
+});
