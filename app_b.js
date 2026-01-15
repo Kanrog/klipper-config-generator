@@ -1004,7 +1004,7 @@ function renderSectionCheckboxes(sections) {
     container.innerHTML = '';
     
     if (sections.length === 0) {
-        container.innerHTML = '<div style="color: #ef4444;">No sections found in config file.</div>';
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">No sections found in config file.</div>';
         return;
     }
     
@@ -1025,13 +1025,24 @@ function renderSectionCheckboxes(sections) {
     categoryOrder.forEach(category => {
         if (!categories[category] || categories[category].length === 0) return;
         
+        // Create category container
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'section-category';
+        categoryDiv.dataset.category = category;
+        
+        // Category header
         const header = document.createElement('div');
         header.className = 'section-category-header';
         header.innerHTML = `
-            <span>${category}</span>
-            <span class="category-toggle" onclick="toggleCategory('${category}')" title="Toggle all in category">⊟</span>
+            <span>${category} (${categories[category].length})</span>
+            <span class="category-toggle" title="Toggle all">⊟</span>
         `;
-        container.appendChild(header);
+        header.onclick = () => toggleCategory(category);
+        categoryDiv.appendChild(header);
+        
+        // Section items container
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'section-items';
         
         categories[category].forEach(section => {
             const div = document.createElement('div');
@@ -1048,23 +1059,30 @@ function renderSectionCheckboxes(sections) {
             const label = document.createElement('label');
             label.htmlFor = `section-${section.index}`;
             label.textContent = section.name;
+            label.title = section.name; // Show full name on hover
             
             if (section.originallyCommented) {
                 label.classList.add('originally-commented');
-                label.title = 'Commented out in original config';
+                label.title += ' (commented out in original)';
             }
             
             div.appendChild(checkbox);
             div.appendChild(label);
-            container.appendChild(div);
+            itemsDiv.appendChild(div);
         });
+        
+        categoryDiv.appendChild(itemsDiv);
+        container.appendChild(categoryDiv);
     });
     
     updateSectionCount();
 }
 
 function toggleCategory(category) {
-    const items = document.querySelectorAll(`.section-item[data-category="${category}"] input[type="checkbox"]`);
+    const categoryDiv = document.querySelector(`.section-category[data-category="${category}"]`);
+    if (!categoryDiv) return;
+    
+    const items = categoryDiv.querySelectorAll('.section-item input[type="checkbox"]');
     const allChecked = Array.from(items).every(cb => cb.checked);
     items.forEach(cb => cb.checked = !allChecked);
     updateSectionCount();
