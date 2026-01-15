@@ -57,12 +57,13 @@ The goal is to create a tool that generates complete, working configs that requi
 - [ ] MCU firmware compilation helper / instructions
 - [ ] Macro library (start/end gcode, pause/resume, etc.)
 - [ ] Validation warnings for incompatible settings
+- [ ] Integrated editor for manual changes before download 
 
 ### Long Term
 - [ ] Community config database - users can upload and share their working configs
 - [ ] Searchable printer list with configs tagged by printer model and features
 - [ ] Config diff/comparison tool
-- [ ] Import from Marlin configs
+- [ ] Import from Marlin configs(?)
 
 ### Ideas / Maybe
 - [ ] Visual pin mapping diagram
