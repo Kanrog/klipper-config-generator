@@ -6,14 +6,15 @@
     <title>Klipper Config Generator</title>
     <style>
         :root {
-            --primary: #2563eb;
-            --success: #10b981;
+            --primary: #3b82f6;
+            --success: #22c55e;
             --warning: #f59e0b;
-            --bg: #f8fafc;
-            --card: #ffffff;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --terminal: #0f172a;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --terminal: #020617;
+            --border: #334155;
         }
 
         body {
@@ -28,8 +29,8 @@
         }
         
         .notice {
-            background: linear-gradient(135deg, #fef3c7, #fde68a);
-            border: 1px solid #f59e0b;
+            background: linear-gradient(135deg, #422006, #713f12);
+            border: 1px solid #a16207;
             border-radius: 8px;
             padding: 12px 20px;
             margin-bottom: 20px;
@@ -37,10 +38,11 @@
             width: 100%;
             box-sizing: border-box;
             font-size: 0.9rem;
+            color: #fef3c7;
         }
         
         .notice a {
-            color: var(--primary);
+            color: #60a5fa;
             text-decoration: none;
             font-weight: 600;
         }
@@ -61,17 +63,19 @@
             background: var(--card);
             border-radius: 12px;
             padding: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             display: flex;
             flex-direction: column;
+            border: 1px solid var(--border);
         }
 
         h2 { 
             margin-top: 0; 
             font-size: 1.25rem; 
-            border-bottom: 2px solid #f1f5f9; 
+            border-bottom: 2px solid var(--border); 
             padding-bottom: 10px; 
-            margin-bottom: 20px; 
+            margin-bottom: 20px;
+            color: var(--text-main);
         }
 
         .group { margin-bottom: 18px; }
@@ -88,16 +92,18 @@
         select, input[type="text"], input[type="number"] {
             width: 100%;
             padding: 10px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border);
             border-radius: 6px;
             font-size: 0.95rem;
             box-sizing: border-box;
+            background: var(--terminal);
+            color: var(--text-main);
         }
         
         select:focus, input:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
 
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -107,10 +113,11 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: #f1f5f9;
+            background: var(--terminal);
             padding: 10px;
             border-radius: 6px;
             cursor: pointer;
+            border: 1px solid var(--border);
         }
         .checkbox-group input { width: auto; }
 
@@ -128,17 +135,17 @@
 
         .btn-generate { background: var(--primary); color: white; margin-top: 10px; }
         .btn-download { background: var(--success); color: white; }
-        button:hover { opacity: 0.9; }
+        button:hover { opacity: 0.85; }
         button:active { transform: scale(0.98); }
 
         textarea {
             flex-grow: 1;
             background: var(--terminal);
-            color: #e2e8f0;
+            color: #a5f3fc;
             font-family: 'Fira Code', 'Courier New', monospace;
             padding: 20px;
             border-radius: 8px;
-            border: none;
+            border: 1px solid var(--border);
             font-size: 0.85rem;
             line-height: 1.6;
             resize: none;
@@ -166,7 +173,7 @@
         .upload-section {
             margin-top: 10px;
             padding-top: 10px;
-            border-top: 1px dashed #cbd5e1;
+            border-top: 1px dashed var(--border);
         }
         
         .upload-label {
@@ -175,8 +182,8 @@
             justify-content: center;
             gap: 8px;
             padding: 12px;
-            background: #f8fafc;
-            border: 2px dashed #cbd5e1;
+            background: var(--terminal);
+            border: 2px dashed var(--border);
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
@@ -186,7 +193,7 @@
         
         .upload-label:hover {
             border-color: var(--primary);
-            background: #eff6ff;
+            background: #1e3a5f;
             color: var(--primary);
         }
         
@@ -203,11 +210,11 @@
             display: none;
             margin-top: 8px;
             padding: 8px 12px;
-            background: #ecfdf5;
-            border: 1px solid #10b981;
+            background: #14532d;
+            border: 1px solid #22c55e;
             border-radius: 6px;
             font-size: 0.8rem;
-            color: #047857;
+            color: #86efac;
         }
 
         /* Sections container styling */
@@ -244,20 +251,21 @@
             padding: 4px 8px;
             font-size: 0.7rem;
             margin: 0;
-            background: #e2e8f0;
+            background: var(--border);
             color: var(--text-main);
         }
         
         .sections-toggle-buttons button:hover {
-            background: #cbd5e1;
+            background: #475569;
         }
 
         #sections-container {
             max-height: 350px;
             overflow-y: auto;
-            background: #f1f5f9;
+            background: var(--terminal);
             padding: 12px;
             border-radius: 6px;
+            border: 1px solid var(--border);
         }
         
         #sections-container::-webkit-scrollbar {
@@ -265,17 +273,17 @@
         }
         
         #sections-container::-webkit-scrollbar-track {
-            background: #e2e8f0;
+            background: var(--card);
             border-radius: 4px;
         }
         
         #sections-container::-webkit-scrollbar-thumb {
-            background: #94a3b8;
+            background: var(--border);
             border-radius: 4px;
         }
         
         #sections-container::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
+            background: #475569;
         }
 
         /* Section category headers */
@@ -285,10 +293,10 @@
             align-items: center;
             font-weight: bold;
             font-size: 0.75rem;
-            color: #475569;
+            color: var(--text-muted);
             margin: 12px 0 6px 0;
             text-transform: uppercase;
-            border-bottom: 1px solid #cbd5e1;
+            border-bottom: 1px solid var(--border);
             padding-bottom: 4px;
         }
         
@@ -359,9 +367,10 @@
             justify-content: space-between;
             align-items: center;
             padding: 8px 10px;
-            background: #f8fafc;
+            background: var(--terminal);
             border-radius: 6px;
             margin-bottom: 6px;
+            border: 1px solid var(--border);
         }
         
         .option-label {
@@ -386,7 +395,7 @@
         .option-subgroup {
             margin-left: 15px;
             padding-left: 10px;
-            border-left: 2px solid #e2e8f0;
+            border-left: 2px solid var(--border);
         }
         
         .option-hint {
@@ -457,9 +466,13 @@
                 <input type="number" id="bedY" value="235" placeholder="Y">
                 <input type="number" id="bedZ" value="250" placeholder="Z">
             </div>
-            <div class="grid-2" id="deltaDimensions" style="display: none;">
-                <input type="number" id="deltaRadius" value="140" placeholder="Print Radius">
-                <input type="number" id="deltaHeight" value="300" placeholder="Height">
+            <div id="deltaDimensions" style="display: none;">
+                <div class="grid-3">
+                    <input type="number" id="deltaRadius" value="140" placeholder="Print Radius">
+                    <input type="number" id="deltaHeight" value="300" placeholder="Height">
+                    <input type="number" id="deltaArmLength" value="270" placeholder="Arm Length">
+                </div>
+                <p class="option-hint">Arm length = distance between ball joints on diagonal rods</p>
             </div>
         </div>
 
