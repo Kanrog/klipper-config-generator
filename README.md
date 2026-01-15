@@ -52,6 +52,8 @@ The goal is to create a tool that generates complete, working configs that requi
 - [ ] Extruder configuration (rotation distance calculator, pressure advance)
 - [ ] Input shaper defaults
 - [ ] Keep saved settings in uploaded cfg
+- [ ] Add "default" values as notes
+- [ ] Feature to keep inportant notes in configs
 
 ### Medium Term
 - [ ] Printer profile presets (Ender 3, Voron, Prusa, etc.)
