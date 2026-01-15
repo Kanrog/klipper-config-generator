@@ -910,9 +910,14 @@ document.addEventListener('change', (e) => {
  * MAIN GENERATE FUNCTION
  * Builds the config based on selected sections
  */
+/**
+ * Generate the config with a MINIMAL MODIFICATION approach
+ * Keeps the original file structure intact, only modifies specific values
+ */
 function generate() {
     const sections = window.currentConfigData.sections;
     const fileName = window.currentConfigData.fileName;
+    const rawConfig = window.currentConfigData.raw;
     
     if (!sections || sections.length === 0) {
         alert('Please select a board or upload a config file first.');
@@ -955,220 +960,300 @@ function generate() {
         document.querySelectorAll('#sections-container input[type="checkbox"]:checked')
     ).map(cb => parseInt(cb.value));
     
-    // Section separator
-    const separator = '#=====================================#\n';
+    // Split original file into lines for processing
+    let lines = rawConfig.split('\n');
     
-    // Build the config header
-    let cfg = `${separator}`;
-    cfg += `# Klipper Config Generator by Kanrog Creations\n`;
-    cfg += `# Base config: ${fileName}\n`;
-    cfg += `# Generated: ${new Date().toLocaleString()}\n`;
-    cfg += `# Sections: ${selectedIndices.length} of ${sections.length} enabled\n`;
-    cfg += `#\n`;
-    cfg += `# Settings:\n`;
-    cfg += `#   Kinematics: ${kinematics.name}\n`;
-    if (settings.usesDelta) {
-        cfg += `#   Print Radius: ${settings.deltaRadius}mm, Height: ${settings.deltaHeight}mm\n`;
-    } else {
-        cfg += `#   Bed: ${settings.bedX}x${settings.bedY}x${settings.bedZ}mm\n`;
-        if (settings.zMotorCount > 1) {
-            cfg += `#   Z Motors: ${settings.zMotorCount} (${settings.zLevelingType === 'none' ? 'manual leveling' : settings.zLevelingType})\n`;
+    // Find SAVE_CONFIG start
+    const saveConfigStart = lines.findIndex(line => 
+        line.includes('#*# <---------------------- SAVE_CONFIG ---------------------->')
+    );
+    
+    // Process the file line by line
+    let output = '';
+    let currentSectionIndex = -1;
+    let inSaveConfig = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Check if we've reached SAVE_CONFIG
+        if (saveConfigStart !== -1 && i >= saveConfigStart) {
+            inSaveConfig = true;
         }
-    }
-    if (kinematics.usesXYEndstops) {
-        cfg += `#   X Endstop: ${settings.endstopX}, Y Endstop: ${settings.endstopY}\n`;
-    }
-    cfg += `#   Z Endstop: ${settings.zEndstopType}\n`;
-    if (settings.sensorlessXY) {
-        cfg += `#   Sensorless Homing: Enabled (X/Y)\n`;
-    }
-    cfg += `${separator}\n\n`;
-    
-    // Output sections in ORIGINAL ORDER (don't reorganize)
-    // This preserves the user's intended structure and all their comments
-    sections.forEach((section, index) => {
-        const isSelected = selectedIndices.includes(index);
-        let content = section.content;
         
-        // Clean up ONLY purely decorative separators, keep all comments
-        content = cleanSectionContent(content);
+        // If in SAVE_CONFIG, just output as-is
+        if (inSaveConfig) {
+            output += line + '\n';
+            continue;
+        }
         
-        if (isSelected) {
-            // UNCOMMENT the section if it was originally commented
-            if (section.originallyCommented) {
-                content = uncommentSection(content);
-            }
-            
-            // Apply modifications based on section type
-            content = applyKinematics(content, section.name, settings);
-            content = applyBedDimensions(content, section.name, settings);
-            content = applyEndstopSettings(content, section.name, settings);
-            content = applySensorlessHoming(content, section.name, settings);
-            content = applyProbeSettings(content, section.name, settings);
-            
-            // Comment out lines that have saved values in SAVE_CONFIG
-            content = commentOutSavedLines(content, section.name, window.currentConfigData.savedValues);
-            
-            cfg += content + '\n\n';
+        // Check if this line starts a new section
+        const sectionMatch = line.match(/^(\s*#\s*)?\[([^\]]+)\]/);
+        if (sectionMatch) {
+            // Find which section this is
+            currentSectionIndex = sections.findIndex((s, idx) => 
+                s.startLine === i
+            );
+        }
+        
+        // Determine if current section is selected
+        const isCurrentSectionSelected = currentSectionIndex !== -1 && 
+                                        selectedIndices.includes(currentSectionIndex);
+        
+        // Process the line based on section selection
+        if (currentSectionIndex === -1) {
+            // Before any section or between sections - keep as-is
+            output += line + '\n';
         } else {
-            // COMMENT OUT the section if it was originally enabled
-            if (!section.originallyCommented) {
-                content = commentSection(content);
-            }
-            cfg += content + '\n\n';
-        }
-    });
-    
-    // Add additional Z stepper sections for multi-Z setups
-    if (!settings.usesDelta && settings.zMotorCount > 1) {
-        cfg += `${separator}`;
-        cfg += `# ADDITIONAL Z MOTORS\n`;
-        cfg += `${separator}\n`;
-        
-        // Find the original stepper_z to get rotation_distance
-        const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
-        const stepperZContent = stepperZ ? stepperZ.content : '';
-        
-        // Try to extract rotation_distance from stepper_z
-        const rotDistMatch = stepperZContent.match(/rotation_distance:\s*([\d.]+)/);
-        const rotationDistance = rotDistMatch ? rotDistMatch[1] : '8';
-        
-        // Try to extract microsteps from stepper_z
-        const microMatch = stepperZContent.match(/microsteps:\s*(\d+)/);
-        const microsteps = microMatch ? microMatch[1] : '16';
-        
-        for (let i = 1; i < settings.zMotorCount; i++) {
-            cfg += `[stepper_z${i}]\n`;
-            cfg += `# Copy pins from your board's available stepper driver\n`;
-            cfg += `# Typically: E1, E2, E3, or additional driver headers\n`;
-            cfg += `step_pin: CHANGE_ME  # Example: PB3 for E1 on many boards\n`;
-            cfg += `dir_pin: CHANGE_ME   # Example: PB4 for E1 on many boards\n`;
-            cfg += `enable_pin: !CHANGE_ME  # Example: !PD2 for E1 on many boards\n`;
-            cfg += `microsteps: ${microsteps}\n`;
-            cfg += `rotation_distance: ${rotationDistance}  # Must match stepper_z\n`;
-            cfg += `# IMPORTANT: Do NOT define endstop_pin for additional Z steppers\n`;
-            cfg += `# Only stepper_z should have an endstop\n\n`;
-        }
-        
-        // Check if there are TMC sections for stepper_z and add matching ones for additional Z
-        const tmcZ = sections.find(s => {
-            const name = s.name.toLowerCase();
-            return name.includes('tmc') && name.includes('stepper_z') && !name.includes('stepper_z1');
-        });
-        
-        if (tmcZ) {
-            cfg += `${separator}\n`;
-            cfg += `# TMC DRIVERS FOR ADDITIONAL Z MOTORS\n`;
-            cfg += `${separator}\n`;
+            const section = sections[currentSectionIndex];
+            const wasCommented = section.originallyCommented;
             
-            const tmcType = tmcZ.name.split(' ')[0]; // Get TMC type (e.g., tmc2209, tmc2130)
-            const tmcContent = tmcZ.content;
-            
-            // Extract run_current from original TMC section
-            const currentMatch = tmcContent.match(/run_current:\s*([\d.]+)/);
-            const runCurrent = currentMatch ? currentMatch[1] : '0.580';
-            
-            for (let i = 1; i < settings.zMotorCount; i++) {
-                cfg += `[${tmcType} stepper_z${i}]\n`;
-                cfg += `uart_pin: CHANGE_ME  # UART pin for this driver\n`;
-                cfg += `run_current: ${runCurrent}  # Match stepper_z current\n`;
-                cfg += `stealthchop_threshold: 999999\n\n`;
-            }
-        }
-        
-        // Add z_tilt or quad_gantry_level section
-        if (settings.zLevelingType === 'z_tilt') {
-            cfg += `[z_tilt]\n`;
-            cfg += `# ADJUST THESE VALUES TO MATCH YOUR PRINTER!\n`;
-            cfg += `# z_positions: Physical locations of the Z motors\n`;
-            cfg += `# points: Probe points (must be reachable by probe)\n\n`;
-            if (settings.zMotorCount === 2) {
-                cfg += `# Example for 2 Z motors (left/right configuration)\n`;
-                cfg += `z_positions:\n`;
-                cfg += `    -50, ${Math.round(settings.bedY / 2)}      # Left Z motor (behind bed edge)\n`;
-                cfg += `    ${settings.bedX + 50}, ${Math.round(settings.bedY / 2)}  # Right Z motor (behind bed edge)\n`;
-                cfg += `points:\n`;
-                cfg += `    30, ${Math.round(settings.bedY / 2)}     # Left probe point\n`;
-                cfg += `    ${settings.bedX - 30}, ${Math.round(settings.bedY / 2)}  # Right probe point\n`;
-            } else if (settings.zMotorCount === 3) {
-                cfg += `# Example for 3 Z motors (triangle configuration)\n`;
-                cfg += `z_positions:\n`;
-                cfg += `    ${Math.round(settings.bedX / 2)}, -50                    # Front center motor\n`;
-                cfg += `    -50, ${settings.bedY + 50}  # Rear left motor\n`;
-                cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}     # Rear right motor\n`;
-                cfg += `points:\n`;
-                cfg += `    ${Math.round(settings.bedX / 2)}, 30    # Front center probe point\n`;
-                cfg += `    30, ${settings.bedY - 30}               # Rear left probe point\n`;
-                cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}  # Rear right probe point\n`;
+            if (isCurrentSectionSelected) {
+                // Section is ENABLED
+                let processedLine = line;
+                
+                // Uncomment if it was originally commented
+                if (wasCommented && line.trim().startsWith('#')) {
+                    processedLine = line.replace(/^(\s*)#\s?/, '$1');
+                }
+                
+                // Apply modifications to specific values
+                processedLine = applyLineModifications(processedLine, section.name, settings, window.currentConfigData.savedValues);
+                
+                output += processedLine + '\n';
             } else {
-                cfg += `# Example for 4 Z motors (quad configuration)\n`;
-                cfg += `z_positions:\n`;
-                cfg += `    -50, -50          # Front left motor\n`;
-                cfg += `    -50, ${settings.bedY + 50}      # Rear left motor\n`;
-                cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}  # Rear right motor\n`;
-                cfg += `    ${settings.bedX + 50}, -50  # Front right motor\n`;
-                cfg += `points:\n`;
-                cfg += `    30, 30\n`;
-                cfg += `    30, ${settings.bedY - 30}\n`;
-                cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}\n`;
-                cfg += `    ${settings.bedX - 30}, 30\n`;
+                // Section is DISABLED
+                let processedLine = line;
+                
+                // Comment out if it wasn't originally commented
+                if (!wasCommented && !line.trim().startsWith('#') && line.trim() !== '') {
+                    processedLine = '#' + line;
+                }
+                
+                output += processedLine + '\n';
             }
-            cfg += `speed: 150\n`;
-            cfg += `horizontal_move_z: 5  # Height to lift Z before moving between points\n`;
-            cfg += `retries: 5            # Number of times to retry if adjustment fails\n`;
-            cfg += `retry_tolerance: 0.0075  # Maximum allowed error (mm)\n\n`;
-        } else if (settings.zLevelingType === 'quad_gantry_level') {
-            cfg += `[quad_gantry_level]\n`;
-            cfg += `# ADJUST THESE VALUES TO MATCH YOUR PRINTER!\n`;
-            cfg += `# gantry_corners: Physical locations where the gantry is attached to Z motors\n`;
-            cfg += `#   These are typically OUTSIDE the bed area\n`;
-            cfg += `# points: Probe points (must be reachable by probe and INSIDE bed area)\n\n`;
-            cfg += `gantry_corners:\n`;
-            cfg += `    -60, -10              # Front left gantry attachment point\n`;
-            cfg += `    ${settings.bedX + 60}, ${settings.bedY + 60}  # Rear right gantry attachment point\n`;
-            cfg += `points:\n`;
-            cfg += `    30, 30                # Front left probe point\n`;
-            cfg += `    30, ${settings.bedY - 30}               # Rear left probe point\n`;
-            cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}  # Rear right probe point\n`;
-            cfg += `    ${settings.bedX - 30}, 30               # Front right probe point\n`;
-            cfg += `speed: 150\n`;
-            cfg += `horizontal_move_z: 5  # Height to lift Z before moving between points\n`;
-            cfg += `retries: 5            # Number of times to retry if adjustment fails\n`;
-            cfg += `retry_tolerance: 0.0075  # Maximum allowed error (mm)\n`;
-            cfg += `max_adjust: 10        # Maximum adjustment allowed (mm)\n\n`;
         }
     }
     
-    // Add delta-specific sections if delta kinematics
-    if (settings.usesDelta && settings.kinematicsKlipper === 'delta') {
-        cfg += `${separator}`;
-        cfg += `# DELTA CALIBRATION\n`;
-        cfg += `${separator}\n`;
-        cfg += `[delta_calibrate]\n`;
-        cfg += `radius: ${settings.deltaRadius - 10}\n`;
-        cfg += `horizontal_move_z: 10\n`;
-        cfg += `# speed: 50\n`;
-        cfg += `# samples: 1\n\n`;
+    // Add generated Z motor sections if needed (after original config, before SAVE_CONFIG)
+    if (!settings.usesDelta && settings.zMotorCount > 1 && saveConfigStart !== -1) {
+        let additionalSections = generateAdditionalZMotors(settings, sections);
+        
+        // Insert before SAVE_CONFIG
+        const beforeSaveConfig = output.substring(0, output.indexOf('#*# <---------------------- SAVE_CONFIG'));
+        const saveConfigBlock = output.substring(output.indexOf('#*# <---------------------- SAVE_CONFIG'));
+        
+        output = beforeSaveConfig + '\n' + additionalSections + '\n' + saveConfigBlock;
+    } else if (!settings.usesDelta && settings.zMotorCount > 1) {
+        // No SAVE_CONFIG block, append at end
+        output += '\n' + generateAdditionalZMotors(settings, sections);
     }
     
-    // Clean up excessive blank lines
-    cfg = cfg.replace(/\n{3,}/g, '\n\n');
-    
-    // Add SAVE_CONFIG block at the end
-    // If we have a preserved SAVE_CONFIG from an uploaded file, use that
-    // Otherwise create a blank one
-    if (window.currentConfigData.saveConfigBlock) {
-        cfg += '\n' + window.currentConfigData.saveConfigBlock;
-    } else {
-        cfg += `\n${separator}`;
-        cfg += `#*# <---------------------- SAVE_CONFIG ---------------------->\n`;
-        cfg += `#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.\n`;
-        cfg += `#*#\n`;
-    }
-    
-    document.getElementById('output').value = cfg;
+    document.getElementById('output').value = output;
 }
 
+/**
+ * Apply modifications to a single line based on section context
+ * This is where we change specific values like position_max, endstop positions, etc.
+ */
+function applyLineModifications(line, sectionName, settings, savedValues) {
+    const name = sectionName.toLowerCase();
+    const trimmedLine = line.trim();
+    
+    // Check if this line should be commented due to SAVE_CONFIG override
+    if (savedValues) {
+        const keyMatch = trimmedLine.match(/^\s*([a-z_]+)\s*[:=]/);
+        if (keyMatch && !trimmedLine.startsWith('#')) {
+            const key = `${name}.${keyMatch[1]}`;
+            if (savedValues[key] !== undefined) {
+                return '#' + line + '  # (overridden in SAVE_CONFIG)';
+            }
+        }
+    }
+    
+    // Apply modifications based on section and line content
+    let modified = line;
+    
+    // Kinematics modifications
+    if (name === 'printer' && trimmedLine.startsWith('kinematics:')) {
+        modified = line.replace(/kinematics:\s*\w+/, `kinematics: ${settings.kinematicsKlipper}`);
+    }
+    
+    // Bed dimension modifications for cartesian
+    if (!settings.usesDelta) {
+        if (name === 'stepper_x' && trimmedLine.match(/^position_max:/)) {
+            modified = line.replace(/position_max:\s*[\d.]+/, `position_max: ${settings.bedX}`);
+        }
+        if (name === 'stepper_x' && trimmedLine.match(/^position_endstop:/)) {
+            if (settings.endstopX === 'max') {
+                modified = line.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${settings.bedX}`);
+            } else {
+                modified = line.replace(/position_endstop:\s*[\d.]+/, `position_endstop: 0`);
+            }
+        }
+        
+        if (name === 'stepper_y' && trimmedLine.match(/^position_max:/)) {
+            modified = line.replace(/position_max:\s*[\d.]+/, `position_max: ${settings.bedY}`);
+        }
+        if (name === 'stepper_y' && trimmedLine.match(/^position_endstop:/)) {
+            if (settings.endstopY === 'max') {
+                modified = line.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${settings.bedY}`);
+            } else {
+                modified = line.replace(/position_endstop:\s*[\d.]+/, `position_endstop: 0`);
+            }
+        }
+        
+        if (name === 'stepper_z' && trimmedLine.match(/^position_max:/)) {
+            modified = line.replace(/position_max:\s*[\d.]+/, `position_max: ${settings.bedZ}`);
+        }
+    }
+    
+    // Delta dimension modifications
+    if (settings.usesDelta) {
+        if ((name === 'stepper_a' || name === 'stepper_b' || name === 'stepper_c') && trimmedLine.match(/^position_max:/)) {
+            modified = line.replace(/position_max:\s*[\d.]+/, `position_max: ${settings.deltaHeight}`);
+        }
+        if ((name === 'stepper_a' || name === 'stepper_b' || name === 'stepper_c') && trimmedLine.match(/^position_endstop:/)) {
+            modified = line.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${settings.deltaHeight}`);
+        }
+    }
+    
+    // Probe offset modifications
+    if ((name === 'probe' || name === 'bltouch') && trimmedLine.match(/^x_offset:/)) {
+        modified = line.replace(/x_offset:\s*[-\d.]+/, `x_offset: ${settings.probeOffsetX}`);
+    }
+    if ((name === 'probe' || name === 'bltouch') && trimmedLine.match(/^y_offset:/)) {
+        modified = line.replace(/y_offset:\s*[-\d.]+/, `y_offset: ${settings.probeOffsetY}`);
+    }
+    
+    return modified;
+}
+
+/**
+ * Generate additional Z motor sections
+ */
+function generateAdditionalZMotors(settings, sections) {
+    if (settings.zMotorCount <= 1) return '';
+    
+    const separator = '#=====================================#\n';
+    let cfg = '';
+    
+    cfg += `${separator}`;
+    cfg += `# ADDITIONAL Z MOTORS (Generated by Config Tool)\n`;
+    cfg += `${separator}\n\n`;
+    
+    // Find the original stepper_z to get rotation_distance
+    const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
+    const stepperZContent = stepperZ ? stepperZ.content : '';
+    
+    // Try to extract rotation_distance from stepper_z
+    const rotDistMatch = stepperZContent.match(/rotation_distance:\s*([\d.]+)/);
+    const rotationDistance = rotDistMatch ? rotDistMatch[1] : '8';
+    
+    // Try to extract microsteps from stepper_z
+    const microMatch = stepperZContent.match(/microsteps:\s*(\d+)/);
+    const microsteps = microMatch ? microMatch[1] : '16';
+    
+    for (let i = 1; i < settings.zMotorCount; i++) {
+        cfg += `[stepper_z${i}]\n`;
+        cfg += `# Copy pins from your board's available stepper driver\n`;
+        cfg += `# Typically: E1, E2, E3, or additional driver headers\n`;
+        cfg += `step_pin: CHANGE_ME  # Example: PB3 for E1 on many boards\n`;
+        cfg += `dir_pin: CHANGE_ME   # Example: PB4 for E1 on many boards\n`;
+        cfg += `enable_pin: !CHANGE_ME  # Example: !PD2 for E1 on many boards\n`;
+        cfg += `microsteps: ${microsteps}\n`;
+        cfg += `rotation_distance: ${rotationDistance}  # Must match stepper_z\n`;
+        cfg += `# IMPORTANT: Do NOT define endstop_pin for additional Z steppers\n`;
+        cfg += `# Only stepper_z should have an endstop\n\n`;
+    }
+    
+    // Check if there are TMC sections for stepper_z and add matching ones for additional Z
+    const tmcZ = sections.find(s => {
+        const name = s.name.toLowerCase();
+        return name.includes('tmc') && name.includes('stepper_z') && !name.includes('stepper_z1');
+    });
+    
+    if (tmcZ) {
+        const tmcType = tmcZ.name.split(' ')[0]; // Get TMC type (e.g., tmc2209, tmc2130)
+        const tmcContent = tmcZ.content;
+        
+        // Extract run_current from original TMC section
+        const currentMatch = tmcContent.match(/run_current:\s*([\d.]+)/);
+        const runCurrent = currentMatch ? currentMatch[1] : '0.580';
+        
+        for (let i = 1; i < settings.zMotorCount; i++) {
+            cfg += `[${tmcType} stepper_z${i}]\n`;
+            cfg += `uart_pin: CHANGE_ME  # UART pin for this driver\n`;
+            cfg += `run_current: ${runCurrent}  # Match stepper_z current\n`;
+            cfg += `stealthchop_threshold: 999999\n\n`;
+        }
+    }
+    
+    // Add z_tilt or quad_gantry_level section
+    if (settings.zLevelingType === 'z_tilt') {
+        cfg += `[z_tilt]\n`;
+        cfg += `# ADJUST THESE VALUES TO MATCH YOUR PRINTER!\n`;
+        cfg += `# z_positions: Physical locations of the Z motors\n`;
+        cfg += `# points: Probe points (must be reachable by probe)\n\n`;
+        if (settings.zMotorCount === 2) {
+            cfg += `# Example for 2 Z motors (left/right configuration)\n`;
+            cfg += `z_positions:\n`;
+            cfg += `    -50, ${Math.round(settings.bedY / 2)}      # Left Z motor (behind bed edge)\n`;
+            cfg += `    ${settings.bedX + 50}, ${Math.round(settings.bedY / 2)}  # Right Z motor (behind bed edge)\n`;
+            cfg += `points:\n`;
+            cfg += `    30, ${Math.round(settings.bedY / 2)}     # Left probe point\n`;
+            cfg += `    ${settings.bedX - 30}, ${Math.round(settings.bedY / 2)}  # Right probe point\n`;
+        } else if (settings.zMotorCount === 3) {
+            cfg += `# Example for 3 Z motors (triangle configuration)\n`;
+            cfg += `z_positions:\n`;
+            cfg += `    ${Math.round(settings.bedX / 2)}, -50                    # Front center motor\n`;
+            cfg += `    -50, ${settings.bedY + 50}  # Rear left motor\n`;
+            cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}     # Rear right motor\n`;
+            cfg += `points:\n`;
+            cfg += `    ${Math.round(settings.bedX / 2)}, 30    # Front center probe point\n`;
+            cfg += `    30, ${settings.bedY - 30}               # Rear left probe point\n`;
+            cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}  # Rear right probe point\n`;
+        } else {
+            cfg += `# Example for 4 Z motors (quad configuration)\n`;
+            cfg += `z_positions:\n`;
+            cfg += `    -50, -50          # Front left motor\n`;
+            cfg += `    -50, ${settings.bedY + 50}      # Rear left motor\n`;
+            cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}  # Rear right motor\n`;
+            cfg += `    ${settings.bedX + 50}, -50  # Front right motor\n`;
+            cfg += `points:\n`;
+            cfg += `    30, 30\n`;
+            cfg += `    30, ${settings.bedY - 30}\n`;
+            cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}\n`;
+            cfg += `    ${settings.bedX - 30}, 30\n`;
+        }
+        cfg += `speed: 150\n`;
+        cfg += `horizontal_move_z: 5  # Height to lift Z before moving between points\n`;
+        cfg += `retries: 5            # Number of times to retry if adjustment fails\n`;
+        cfg += `retry_tolerance: 0.0075  # Maximum allowed error (mm)\n\n`;
+    } else if (settings.zLevelingType === 'quad_gantry_level') {
+        cfg += `[quad_gantry_level]\n`;
+        cfg += `# ADJUST THESE VALUES TO MATCH YOUR PRINTER!\n`;
+        cfg += `# gantry_corners: Physical locations where the gantry is attached to Z motors\n`;
+        cfg += `#   These are typically OUTSIDE the bed area\n`;
+        cfg += `# points: Probe points (must be reachable by probe and INSIDE bed area)\n\n`;
+        cfg += `gantry_corners:\n`;
+        cfg += `    -60, -10              # Front left gantry attachment point\n`;
+        cfg += `    ${settings.bedX + 60}, ${settings.bedY + 60}  # Rear right gantry attachment point\n`;
+        cfg += `points:\n`;
+        cfg += `    30, 30                # Front left probe point\n`;
+        cfg += `    30, ${settings.bedY - 30}               # Rear left probe point\n`;
+        cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}  # Rear right probe point\n`;
+        cfg += `    ${settings.bedX - 30}, 30               # Front right probe point\n`;
+        cfg += `speed: 150\n`;
+        cfg += `horizontal_move_z: 5  # Height to lift Z before moving between points\n`;
+        cfg += `retries: 5            # Number of times to retry if adjustment fails\n`;
+        cfg += `retry_tolerance: 0.0075  # Maximum allowed error (mm)\n`;
+        cfg += `max_adjust: 10        # Maximum adjustment allowed (mm)\n\n`;
+    }
+    
+    return cfg;
+}
+        
 /**
  * Comment out lines in section content that have corresponding saved values
  * This prevents conflicts when Klipper loads the config

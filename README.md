@@ -63,7 +63,7 @@ The goal is to create a tool that generates complete, working configs that requi
 - [ ] Input shaper defaults
 - [x] Keep saved settings in uploaded cfg
 - [x] Add "default" values as notes
-- [ ] Feature to keep inportant notes in configs
+- [x] Feature to keep inportant notes in configs
 
 ### Medium Term
 - [ ] Printer profile presets (Ender 3, Voron, Prusa, etc.)
