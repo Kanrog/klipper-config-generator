@@ -51,6 +51,7 @@ The goal is to create a tool that generates complete, working configs that requi
 - [ ] Multiple Z stepper support
 - [ ] Extruder configuration (rotation distance calculator, pressure advance)
 - [ ] Input shaper defaults
+- [ ] Keep saved settings in uploaded cfg
 
 ### Medium Term
 - [ ] Printer profile presets (Ender 3, Voron, Prusa, etc.)
