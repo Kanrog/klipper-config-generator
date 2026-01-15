@@ -151,6 +151,32 @@
             resize: none;
             outline: none;
         }
+        
+        textarea:focus {
+            border-color: var(--primary);
+        }
+        
+        /* Output panel header */
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+        }
+        
+        .output-header h2 {
+            margin: 0;
+            border: none;
+            padding: 0;
+        }
+        
+        .edit-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
 
         /* Board selector with search */
         .board-selector {
@@ -616,14 +642,17 @@
     </div>
 
     <div class="panel">
-        <h2>📄 printer.cfg Preview</h2>
-        <textarea id="output" readonly placeholder="Your generated configuration will appear here...
+        <div class="output-header">
+            <h2>printer.cfg</h2>
+            <span class="edit-hint">You can edit directly before downloading</span>
+        </div>
+        <textarea id="output" placeholder="Your generated configuration will appear here...
 
 1. Select a motherboard from the dropdown (or upload your own config)
 2. Adjust bed dimensions if needed
 3. Enable/disable sections using the checkboxes
 4. Click 'Generate Config' to preview
-5. Click 'Download' to save your printer.cfg"></textarea>
+5. Edit if needed, then click 'Download' to save your printer.cfg" spellcheck="false"></textarea>
     </div>
 </div>
 

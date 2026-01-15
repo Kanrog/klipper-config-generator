@@ -47,7 +47,7 @@ The goal is to create a tool that generates complete, working configs that requi
 
 ### Short Term
 - [ ] More base configs for popular motherboards
-- [ ] Kinematics selection (Cartesian, CoreXY, Delta, etc.)
+- [x] Kinematics selection (Cartesian, CoreXY, Delta, etc.)
 - [ ] Dual Z stepper support
 - [ ] Extruder configuration (rotation distance calculator, pressure advance)
 - [ ] Input shaper defaults
@@ -57,7 +57,7 @@ The goal is to create a tool that generates complete, working configs that requi
 - [ ] MCU firmware compilation helper / instructions
 - [ ] Macro library (start/end gcode, pause/resume, etc.)
 - [ ] Validation warnings for incompatible settings
-- [ ] Integrated editor for manual changes before download 
+- [x] Integrated editor for manual changes before download 
 
 ### Long Term
 - [ ] Community config database - users can upload and share their working configs
