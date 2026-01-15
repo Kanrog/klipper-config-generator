@@ -48,7 +48,7 @@ The goal is to create a tool that generates complete, working configs that requi
 ### Short Term
 - [ ] More base configs for popular motherboards
 - [x] Kinematics selection (Cartesian, CoreXY, Delta, etc.)
-- [ ] Dual Z stepper support
+- [ ] Multiple Z stepper support
 - [ ] Extruder configuration (rotation distance calculator, pressure advance)
 - [ ] Input shaper defaults
 
