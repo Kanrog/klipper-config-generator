@@ -7,7 +7,9 @@ window.currentConfigData = {
     raw: '',
     sections: [],
     fileName: '',
-    driverCount: 0  // Total stepper drivers available on the board
+    driverCount: 0,  // Total stepper drivers available on the board
+    saveConfigBlock: '',  // Preserved SAVE_CONFIG section from uploaded configs
+    defaultValues: {}  // Default values extracted from config (bed size, etc.)
 };
 
 // Kinematics definitions with descriptions and settings
@@ -456,16 +458,116 @@ function handleFileUpload(event) {
 function processConfig(configText, fileName) {
     const sections = parseConfigSections(configText);
     const driverCount = countStepperDrivers(configText);
+    const saveConfigBlock = extractSaveConfig(configText);
+    const savedValues = parseSavedValues(saveConfigBlock);
+    const defaultValues = extractDefaultValues(configText, sections);
     
     window.currentConfigData = {
         raw: configText,
         sections: sections,
         fileName: fileName,
-        driverCount: driverCount
+        driverCount: driverCount,
+        saveConfigBlock: saveConfigBlock,
+        savedValues: savedValues,
+        defaultValues: defaultValues
     };
+    
+    // Populate UI with default values
+    populateDefaultValues(defaultValues);
     
     renderSectionCheckboxes(sections);
     updateDriverWarning();
+}
+
+/**
+ * Populate UI fields with default values from the config
+ */
+function populateDefaultValues(defaults) {
+    // Set bed dimensions if available
+    if (defaults.bedX) {
+        document.getElementById('bedX').value = defaults.bedX;
+        document.getElementById('bedX').placeholder = `Default: ${defaults.bedX}`;
+    }
+    if (defaults.bedY) {
+        document.getElementById('bedY').value = defaults.bedY;
+        document.getElementById('bedY').placeholder = `Default: ${defaults.bedY}`;
+    }
+    if (defaults.bedZ) {
+        document.getElementById('bedZ').value = defaults.bedZ;
+        document.getElementById('bedZ').placeholder = `Default: ${defaults.bedZ}`;
+    }
+    
+    // Set kinematics if available
+    if (defaults.kinematics) {
+        const kinematicsSelect = document.getElementById('kinematicsSelect');
+        // Try to find matching kinematics
+        for (const [key, value] of Object.entries(KINEMATICS)) {
+            if (value.klipperName === defaults.kinematics) {
+                kinematicsSelect.value = key;
+                updateKinematicsOptions();
+                break;
+            }
+        }
+    }
+    
+    // Set probe offsets if available
+    if (defaults.probeOffsetX !== undefined) {
+        document.getElementById('probeOffsetX').value = defaults.probeOffsetX;
+        document.getElementById('probeOffsetX').placeholder = `Default: ${defaults.probeOffsetX}`;
+    }
+    if (defaults.probeOffsetY !== undefined) {
+        document.getElementById('probeOffsetY').value = defaults.probeOffsetY;
+        document.getElementById('probeOffsetY').placeholder = `Default: ${defaults.probeOffsetY}`;
+    }
+}
+
+/**
+ * Extract the SAVE_CONFIG block from a config file
+ * Returns the entire block including the header
+ */
+function extractSaveConfig(configText) {
+    const lines = configText.split('\n');
+    const saveConfigStart = lines.findIndex(line => 
+        line.includes('#*# <---------------------- SAVE_CONFIG ---------------------->')
+    );
+    
+    if (saveConfigStart === -1) {
+        return '';
+    }
+    
+    // Get everything from SAVE_CONFIG marker to end of file
+    const saveConfigLines = lines.slice(saveConfigStart);
+    return saveConfigLines.join('\n');
+}
+
+/**
+ * Extract saved values from SAVE_CONFIG block
+ * Returns object like { 'extruder.control': 'pid', 'extruder.pid_kp': '34.413', ... }
+ */
+function parseSavedValues(saveConfigBlock) {
+    const savedValues = {};
+    if (!saveConfigBlock) return savedValues;
+    
+    const lines = saveConfigBlock.split('\n');
+    let currentSection = null;
+    
+    for (const line of lines) {
+        // Check for section headers like #*# [extruder]
+        const sectionMatch = line.match(/^#\*#\s*\[([^\]]+)\]/);
+        if (sectionMatch) {
+            currentSection = sectionMatch[1].toLowerCase();
+            continue;
+        }
+        
+        // Check for key-value pairs like #*# control = pid
+        const valueMatch = line.match(/^#\*#\s*([a-z_]+)\s*=\s*(.+)$/);
+        if (valueMatch && currentSection) {
+            const key = `${currentSection}.${valueMatch[1]}`;
+            savedValues[key] = valueMatch[2].trim();
+        }
+    }
+    
+    return savedValues;
 }
 
 /**
@@ -479,7 +581,13 @@ function parseConfigSections(configText) {
     
     let currentSection = null;
     
-    for (let i = 0; i < lines.length; i++) {
+    // Find where SAVE_CONFIG starts so we don't parse it as sections
+    const saveConfigStart = lines.findIndex(line => 
+        line.includes('#*# <---------------------- SAVE_CONFIG ---------------------->')
+    );
+    const parseUntil = saveConfigStart !== -1 ? saveConfigStart : lines.length;
+    
+    for (let i = 0; i < parseUntil; i++) {
         const line = lines[i];
         const match = line.match(sectionRegex);
         
@@ -505,9 +613,9 @@ function parseConfigSections(configText) {
         }
     }
     
-    // Don't forget the last section
+    // Don't forget the last section (before SAVE_CONFIG)
     if (currentSection) {
-        currentSection.endLine = lines.length - 1;
+        currentSection.endLine = parseUntil - 1;
         currentSection.content = extractSectionContent(lines, currentSection.startLine, currentSection.endLine);
         sections.push(currentSection);
     }
@@ -528,6 +636,55 @@ function extractSectionContent(lines, startLine, endLine) {
     let content = lines.slice(startLine, endLine + 1).join('\n');
     
     return content.trim();
+}
+
+/**
+ * Extract default values from the config
+ * Returns object with bed dimensions, rotation_distance, etc.
+ */
+function extractDefaultValues(configText, sections) {
+    const defaults = {};
+    
+    // Extract bed dimensions from stepper sections
+    const stepperX = sections.find(s => s.name.toLowerCase() === 'stepper_x');
+    const stepperY = sections.find(s => s.name.toLowerCase() === 'stepper_y');
+    const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
+    
+    if (stepperX) {
+        const match = stepperX.content.match(/position_max:\s*([\d.]+)/);
+        if (match) defaults.bedX = parseInt(match[1]);
+    }
+    
+    if (stepperY) {
+        const match = stepperY.content.match(/position_max:\s*([\d.]+)/);
+        if (match) defaults.bedY = parseInt(match[1]);
+    }
+    
+    if (stepperZ) {
+        const match = stepperZ.content.match(/position_max:\s*([\d.]+)/);
+        if (match) defaults.bedZ = parseInt(match[1]);
+    }
+    
+    // Extract kinematics from printer section
+    const printer = sections.find(s => s.name.toLowerCase() === 'printer');
+    if (printer) {
+        const match = printer.content.match(/kinematics:\s*(\w+)/);
+        if (match) defaults.kinematics = match[1].toLowerCase();
+    }
+    
+    // Extract probe offsets if present
+    const probe = sections.find(s => 
+        s.name.toLowerCase() === 'probe' || 
+        s.name.toLowerCase() === 'bltouch'
+    );
+    if (probe) {
+        const xMatch = probe.content.match(/x_offset:\s*([-\d.]+)/);
+        const yMatch = probe.content.match(/y_offset:\s*([-\d.]+)/);
+        if (xMatch) defaults.probeOffsetX = parseFloat(xMatch[1]);
+        if (yMatch) defaults.probeOffsetY = parseFloat(yMatch[1]);
+    }
+    
+    return defaults;
 }
 
 /**
@@ -839,6 +996,9 @@ function generate() {
                 content = applySensorlessHoming(content, section.name, settings);
                 content = applyProbeSettings(content, section.name, settings);
                 
+                // Comment out lines that have saved values in SAVE_CONFIG
+                content = commentOutSavedLines(content, section.name, window.currentConfigData.savedValues);
+                
                 cfg += content + '\n\n';
             } else {
                 // COMMENT OUT the section if it was originally enabled
@@ -986,12 +1146,52 @@ function generate() {
     cfg = cfg.replace(/\n{3,}/g, '\n\n');
     
     // Add SAVE_CONFIG block at the end
-    cfg += `\n${separator}`;
-    cfg += `#*# <---------------------- SAVE_CONFIG ---------------------->\n`;
-    cfg += `#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.\n`;
-    cfg += `#*#\n`;
+    // If we have a preserved SAVE_CONFIG from an uploaded file, use that
+    // Otherwise create a blank one
+    if (window.currentConfigData.saveConfigBlock) {
+        cfg += '\n' + window.currentConfigData.saveConfigBlock;
+    } else {
+        cfg += `\n${separator}`;
+        cfg += `#*# <---------------------- SAVE_CONFIG ---------------------->\n`;
+        cfg += `#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.\n`;
+        cfg += `#*#\n`;
+    }
     
     document.getElementById('output').value = cfg;
+}
+
+/**
+ * Comment out lines in section content that have corresponding saved values
+ * This prevents conflicts when Klipper loads the config
+ */
+function commentOutSavedLines(content, sectionName, savedValues) {
+    if (!savedValues || Object.keys(savedValues).length === 0) {
+        return content;
+    }
+    
+    const lines = content.split('\n');
+    const normalizedSection = sectionName.toLowerCase();
+    
+    const modifiedLines = lines.map(line => {
+        // Skip lines that are already comments or section headers
+        if (line.trim().startsWith('#') || line.trim().startsWith('[')) {
+            return line;
+        }
+        
+        // Check if this line has a key that exists in saved values
+        const match = line.match(/^\s*([a-z_]+)\s*[:=]/);
+        if (match) {
+            const key = `${normalizedSection}.${match[1]}`;
+            if (savedValues[key] !== undefined) {
+                // Comment out this line with a note
+                return `#${line}  # (overridden in SAVE_CONFIG)`;
+            }
+        }
+        
+        return line;
+    });
+    
+    return modifiedLines.join('\n');
 }
 
 /**

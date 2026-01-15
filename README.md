@@ -58,11 +58,11 @@ The goal is to create a tool that generates complete, working configs that requi
 ### Short Term
 - [ ] More base configs for popular motherboards
 - [x] Kinematics selection (Cartesian, CoreXY, Delta, etc.)
-- [ ] Multiple Z stepper support
+- [x] Multiple Z stepper support
 - [ ] Extruder configuration (rotation distance calculator, pressure advance)
 - [ ] Input shaper defaults
-- [ ] Keep saved settings in uploaded cfg
-- [ ] Add "default" values as notes
+- [x] Keep saved settings in uploaded cfg
+- [x] Add "default" values as notes
 - [ ] Feature to keep inportant notes in configs
 
 ### Medium Term
