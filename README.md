@@ -64,7 +64,7 @@ The goal is to create a tool that generates complete, working configs that requi
 - [x] Keep saved settings in uploaded cfg
 - [x] Add "default" values as notes
 - [x] Feature to keep inportant notes in configs
-- [ ] add support for [include]
+- [x] add support for [include]
 
 ### Medium Term
 - [ ] Printer profile presets (Ender 3, Voron, Prusa, etc.)

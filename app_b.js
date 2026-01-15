@@ -9,8 +9,25 @@ window.currentConfigData = {
     fileName: '',
     driverCount: 0,  // Total stepper drivers available on the board
     saveConfigBlock: '',  // Preserved SAVE_CONFIG section from uploaded configs
-    defaultValues: {}  // Default values extracted from config (bed size, etc.)
+    defaultValues: {},  // Default values extracted from config (bed size, etc.)
+    includes: []  // [include] directives for external files
 };
+
+// Common include file presets
+const INCLUDE_PRESETS = [
+    { name: 'mainsail.cfg', description: 'Mainsail web interface macros' },
+    { name: 'fluidd.cfg', description: 'Fluidd web interface macros' },
+    { name: 'macros.cfg', description: 'Custom macro definitions' },
+    { name: 'timelapse.cfg', description: 'Timelapse plugin configuration' },
+    { name: 'KAMP_Settings.cfg', description: 'Klipper Adaptive Meshing & Purging' },
+    { name: 'klipperscreen.cfg', description: 'KlipperScreen display settings' },
+    { name: 'crowsnest.conf', description: 'Webcam streaming configuration' },
+    { name: 'adxl.cfg', description: 'ADXL345 accelerometer configuration' },
+    { name: 'ebb36.cfg', description: 'EBB36 CAN toolhead board' },
+    { name: 'ebb42.cfg', description: 'EBB42 CAN toolhead board' },
+    { name: 'sht36.cfg', description: 'Mellow SHT36 toolhead board' },
+    { name: 'stealthburner_leds.cfg', description: 'Voron Stealthburner LED macros' },
+];
 
 // Kinematics definitions with descriptions and settings
 const KINEMATICS = {
@@ -72,6 +89,210 @@ const KINEMATICS = {
     }
 };
 
+// ============================================
+// INCLUDE FILE MANAGEMENT FUNCTIONS
+// ============================================
+
+/**
+ * Extract existing [include] directives from config text
+ */
+function extractIncludes(configText) {
+    const includes = [];
+    const lines = configText.split('\n');
+    const includeRegex = /^(\s*#\s*)?\[include\s+([^\]]+)\]/i;
+    
+    for (const line of lines) {
+        const match = line.match(includeRegex);
+        if (match) {
+            const isCommented = !!match[1];
+            const fileName = match[2].trim();
+            includes.push({
+                fileName: fileName,
+                enabled: !isCommented
+            });
+        }
+    }
+    
+    return includes;
+}
+
+/**
+ * Render the includes UI section
+ */
+function renderIncludesUI() {
+    const container = document.getElementById('includes-list');
+    if (!container) return;
+    
+    const includes = window.currentConfigData.includes || [];
+    
+    // Build the includes list HTML
+    let html = '';
+    
+    if (includes.length === 0) {
+        html = '<div class="includes-empty">No include files added. Use the controls below to add common configs or enter a custom filename.</div>';
+    } else {
+        includes.forEach((inc, index) => {
+            const preset = INCLUDE_PRESETS.find(p => p.name === inc.fileName);
+            const description = preset ? preset.description : 'Custom include file';
+            
+            html += `
+                <div class="include-item ${inc.enabled ? '' : 'disabled'}">
+                    <input type="checkbox" 
+                           id="include-${index}" 
+                           ${inc.enabled ? 'checked' : ''} 
+                           onchange="toggleInclude(${index})">
+                    <div class="include-info">
+                        <label for="include-${index}" class="include-name">${inc.fileName}</label>
+                        <span class="include-desc">${description}</span>
+                    </div>
+                    <button type="button" class="include-remove" onclick="removeInclude(${index})" title="Remove">×</button>
+                </div>
+            `;
+        });
+    }
+    
+    container.innerHTML = html;
+    updateIncludeCount();
+}
+
+/**
+ * Add a new include file
+ */
+function addInclude(fileName) {
+    if (!fileName || fileName.trim() === '') return;
+    
+    fileName = fileName.trim();
+    
+    // Check if already exists
+    const exists = window.currentConfigData.includes.some(
+        inc => inc.fileName.toLowerCase() === fileName.toLowerCase()
+    );
+    
+    if (exists) {
+        alert(`"${fileName}" is already in the include list.`);
+        return;
+    }
+    
+    window.currentConfigData.includes.push({
+        fileName: fileName,
+        enabled: true
+    });
+    
+    renderIncludesUI();
+    
+    // Clear the custom input if used
+    const customInput = document.getElementById('customIncludeInput');
+    if (customInput) customInput.value = '';
+    
+    // Reset the preset dropdown
+    const presetSelect = document.getElementById('includePresetSelect');
+    if (presetSelect) presetSelect.value = '';
+}
+
+/**
+ * Remove an include file
+ */
+function removeInclude(index) {
+    window.currentConfigData.includes.splice(index, 1);
+    renderIncludesUI();
+}
+
+/**
+ * Toggle an include file enabled/disabled
+ */
+function toggleInclude(index) {
+    window.currentConfigData.includes[index].enabled = 
+        !window.currentConfigData.includes[index].enabled;
+    renderIncludesUI();
+}
+
+/**
+ * Toggle all includes on/off
+ */
+function toggleAllIncludes(enabled) {
+    window.currentConfigData.includes.forEach(inc => {
+        inc.enabled = enabled;
+    });
+    renderIncludesUI();
+}
+
+/**
+ * Update the include count display
+ */
+function updateIncludeCount() {
+    const countEl = document.getElementById('includeCount');
+    if (!countEl) return;
+    
+    const total = window.currentConfigData.includes.length;
+    const enabled = window.currentConfigData.includes.filter(inc => inc.enabled).length;
+    
+    if (total === 0) {
+        countEl.textContent = 'No includes';
+    } else {
+        countEl.textContent = `${enabled}/${total} enabled`;
+    }
+}
+
+/**
+ * Handle preset selection from dropdown
+ */
+function handleIncludePresetSelect(select) {
+    const value = select.value;
+    if (value) {
+        addInclude(value);
+        select.value = ''; // Reset dropdown
+    }
+}
+
+/**
+ * Handle custom include input
+ */
+function handleCustomIncludeAdd() {
+    const input = document.getElementById('customIncludeInput');
+    if (input && input.value.trim()) {
+        addInclude(input.value.trim());
+    }
+}
+
+/**
+ * Handle Enter key in custom include input
+ */
+function handleCustomIncludeKeypress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        handleCustomIncludeAdd();
+    }
+}
+
+/**
+ * Generate the [include] block for the config
+ */
+function generateIncludesBlock() {
+    const includes = window.currentConfigData.includes || [];
+    
+    if (includes.length === 0) {
+        return '';
+    }
+    
+    let block = '#=====================================#\n';
+    block += '#         INCLUDE FILES               #\n';
+    block += '#=====================================#\n\n';
+    
+    for (const inc of includes) {
+        if (inc.enabled) {
+            block += `[include ${inc.fileName}]\n`;
+        } else {
+            block += `#[include ${inc.fileName}]\n`;
+        }
+    }
+    
+    return block;
+}
+
+// ============================================
+// STEPPER DRIVER COUNTING
+// ============================================
+
 /**
  * Count the number of stepper drivers available on the board
  * Uses multiple detection methods for accuracy
@@ -82,20 +303,17 @@ function countStepperDrivers(configText) {
     const lines = configText.split('\n');
     
     // METHOD 1: Count TMC driver sections (most reliable)
-    // Each [tmc2209 stepper_x] etc. represents a physical driver
     const tmcSections = new Set();
     const tmcPattern = /^#*\s*\[(tmc\d+)\s+(stepper_[xyzabc]\d*|extruder\d*)\]/i;
     
     for (const line of lines) {
         const match = line.trim().match(tmcPattern);
         if (match) {
-            // Extract the stepper name (e.g., "stepper_x", "extruder", "stepper_a")
             const stepperName = match[2].toLowerCase();
             tmcSections.add(stepperName);
         }
     }
     
-    // If we found TMC sections, that's our most reliable count
     if (tmcSections.size > 0) {
         console.log('Found TMC sections:', tmcSections);
         return tmcSections.size;
@@ -103,7 +321,6 @@ function countStepperDrivers(configText) {
     
     // METHOD 2: Try to detect board type from comments
     const boardPatterns = [
-        // Format: [pattern, driver_count]
         { pattern: /skr.*mini.*e3/i, drivers: 4 },
         { pattern: /skr.*1\.3/i, drivers: 5 },
         { pattern: /skr.*1\.4/i, drivers: 5 },
@@ -124,7 +341,6 @@ function countStepperDrivers(configText) {
         { pattern: /duet.*3/i, drivers: 6 },
     ];
     
-    // Check first 50 lines for board identification
     const headerText = lines.slice(0, 50).join('\n');
     for (const { pattern, drivers } of boardPatterns) {
         if (pattern.test(headerText)) {
@@ -133,15 +349,13 @@ function countStepperDrivers(configText) {
         }
     }
     
-    // METHOD 3: Count all stepper sections (both active and commented)
-    // Includes both cartesian (x,y,z) and delta (a,b,c) steppers
+    // METHOD 3: Count all stepper sections
     const allStepperSections = new Set();
     const stepperPattern = /^#*\s*\[(?:stepper_[xyzabc]\d*|extruder\d*)\]/i;
     
     for (const line of lines) {
         const match = line.trim().match(stepperPattern);
         if (match) {
-            // Normalize the section name
             const normalized = match[0]
                 .replace(/^#*\s*\[/, '')
                 .replace(/\]/, '')
@@ -152,12 +366,10 @@ function countStepperDrivers(configText) {
     
     console.log('Found stepper sections:', allStepperSections);
     
-    // If we found any sections, return that count
     if (allStepperSections.size > 0) {
         return allStepperSections.size;
     }
     
-    // Default fallback
     return 4;
 }
 
@@ -171,20 +383,17 @@ function calculateRequiredDrivers() {
     
     let required = 0;
     
-    // X and Y motors (or A/B for CoreXY, or towers for delta)
     if (kinematics.usesDelta) {
-        required = 3; // stepper_a, stepper_b, stepper_c
+        required = 3;
     } else {
-        required = 2; // stepper_x, stepper_y
+        required = 2;
     }
     
-    // Z motors
     if (!kinematics.usesDelta) {
         required += zMotorCount;
     }
     
-    // Extruder
-    required += 1;
+    required += 1; // Extruder
     
     return required;
 }
@@ -196,7 +405,6 @@ function updateDriverWarning() {
     const required = calculateRequiredDrivers();
     const available = window.currentConfigData.driverCount;
     
-    // Update driver count display
     let driverCountEl = document.getElementById('driverCountDisplay');
     if (!driverCountEl && available > 0) {
         driverCountEl = document.createElement('div');
@@ -225,7 +433,6 @@ function updateDriverWarning() {
         `;
     }
     
-    // Create or update warning element
     let warningEl = document.getElementById('driverWarning');
     
     if (required > available && available > 0) {
@@ -234,7 +441,6 @@ function updateDriverWarning() {
             warningEl.id = 'driverWarning';
             warningEl.className = 'driver-warning';
             
-            // Insert after Z motors group
             const zMotorsGroup = document.getElementById('zMotorsGroup');
             zMotorsGroup.parentNode.insertBefore(warningEl, zMotorsGroup.nextSibling);
         }
@@ -261,10 +467,8 @@ function updateKinematicsOptions() {
     const selected = kinematicsSelect.value;
     const kinematics = KINEMATICS[selected];
     
-    // Update hint text
     document.getElementById('kinematicsHint').textContent = kinematics.hint;
     
-    // Toggle between cartesian and delta dimension inputs
     const cartesianDims = document.getElementById('cartesianDimensions');
     const deltaDims = document.getElementById('deltaDimensions');
     const dimLabel = document.getElementById('bedDimensionsLabel');
@@ -279,7 +483,6 @@ function updateKinematicsOptions() {
         dimLabel.textContent = 'Bed Dimensions (X / Y / Z mm)';
     }
     
-    // Show/hide X/Y endstop options
     const xyEndstopOptions = document.getElementById('xyEndstopOptions');
     if (kinematics.usesXYEndstops) {
         xyEndstopOptions.style.display = 'block';
@@ -287,13 +490,11 @@ function updateKinematicsOptions() {
         xyEndstopOptions.style.display = 'none';
     }
     
-    // For delta, default Z endstop to max (top of towers)
     if (selected === 'delta') {
         document.getElementById('zEndstopType').value = 'switch_max';
         updateZEndstopOptions();
     }
     
-    // Hide Z motors config for delta (delta uses stepper_a/b/c instead)
     const zMotorsGroup = document.getElementById('zMotorsGroup');
     if (kinematics.usesDelta) {
         zMotorsGroup.style.display = 'none';
@@ -301,7 +502,6 @@ function updateKinematicsOptions() {
         zMotorsGroup.style.display = 'block';
     }
     
-    // Update driver warning
     updateDriverWarning();
 }
 
@@ -312,13 +512,11 @@ function updateSensorlessWarning() {
     const sensorlessCheckbox = document.getElementById('sensorlessXY');
     const defaults = window.currentConfigData?.defaultValues || {};
     
-    // Remove existing warning
     let warningEl = document.getElementById('sensorlessWarning');
     if (warningEl) {
         warningEl.remove();
     }
     
-    // If sensorless is DISABLED but config has sensorless enabled (no physical endstops)
     if (!sensorlessCheckbox.checked && (!defaults.hasPhysicalEndstopX || !defaults.hasPhysicalEndstopY)) {
         warningEl = document.createElement('div');
         warningEl.id = 'sensorlessWarning';
@@ -350,36 +548,51 @@ function updateZMotorOptions() {
     const zTiltOptions = document.getElementById('zTiltOptions');
     const quadGantryOptions = document.getElementById('quadGantryOptions');
     
-    // Hide all first
     zTiltOptions.style.display = 'none';
     quadGantryOptions.style.display = 'none';
     
     if (count === 2 || count === 3) {
-        // Show z_tilt options for dual/triple Z
         zTiltOptions.style.display = 'block';
         document.getElementById('zTiltHint').textContent = 
             count === 2 
                 ? 'Levels the gantry using 2 Z motors (front/back or left/right)'
                 : 'Levels the gantry using 3 Z motors (typically triangle pattern)';
     } else if (count === 4) {
-        // Show quad gantry options
         quadGantryOptions.style.display = 'block';
     }
     
-    // Update driver warning
     updateDriverWarning();
 }
 
-// 1. Fetch board list from GitHub Repo and populate searchable dropdown
+/**
+ * Update Z endstop options visibility
+ */
+function updateZEndstopOptions() {
+    const zEndstopType = document.getElementById('zEndstopType').value;
+    const probeOffsets = document.getElementById('probeOffsets');
+    
+    if (zEndstopType === 'probe') {
+        probeOffsets.style.display = 'grid';
+    } else {
+        probeOffsets.style.display = 'none';
+    }
+}
+
+// ============================================
+// CONFIG LOADING AND PARSING
+// ============================================
+
 window.onload = async () => {
     const select = document.getElementById('boardSelect');
     const searchInput = document.getElementById('boardSearch');
+    
+    // Initialize includes UI
+    renderIncludesUI();
     
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${CONFIG_FOLDER}`);
         const files = await response.json();
 
-        // Store all options for filtering
         window.boardOptions = [];
         
         select.innerHTML = '';
@@ -401,11 +614,9 @@ window.onload = async () => {
             }
         });
         
-        // Enable search input
         searchInput.disabled = false;
         searchInput.placeholder = 'Search boards...';
         
-        // Load sections for the first board
         if (select.value) {
             loadConfigFromRepo(select.value);
         }
@@ -416,7 +627,6 @@ window.onload = async () => {
     }
 };
 
-// Board search/filter functionality
 function filterBoards() {
     const searchInput = document.getElementById('boardSearch');
     const select = document.getElementById('boardSelect');
@@ -446,7 +656,6 @@ function filterBoards() {
     }
 }
 
-// Load config from GitHub repo
 async function loadConfigFromRepo(fileName) {
     try {
         const response = await fetch(`./${CONFIG_FOLDER}/${fileName}`);
@@ -461,12 +670,10 @@ async function loadConfigFromRepo(fileName) {
     }
 }
 
-// Handle user-uploaded config file
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     
-    // Validate file type
     if (!file.name.endsWith('.cfg')) {
         alert('Please upload a .cfg file');
         return;
@@ -477,11 +684,9 @@ function handleFileUpload(event) {
         const configText = e.target.result;
         processConfig(configText, file.name);
         
-        // Update UI to show uploaded file
         document.getElementById('uploadedFileName').textContent = `Loaded: ${file.name}`;
         document.getElementById('uploadedFileName').style.display = 'block';
         
-        // Add to board options temporarily
         const select = document.getElementById('boardSelect');
         const option = document.createElement('option');
         option.value = '__uploaded__';
@@ -492,13 +697,13 @@ function handleFileUpload(event) {
     reader.readAsText(file);
 }
 
-// Process config text (from repo or upload)
 function processConfig(configText, fileName) {
     const sections = parseConfigSections(configText);
     const driverCount = countStepperDrivers(configText);
     const saveConfigBlock = extractSaveConfig(configText);
     const savedValues = parseSavedValues(saveConfigBlock);
     const defaultValues = extractDefaultValues(configText, sections);
+    const includes = extractIncludes(configText);
     
     window.currentConfigData = {
         raw: configText,
@@ -507,25 +712,20 @@ function processConfig(configText, fileName) {
         driverCount: driverCount,
         saveConfigBlock: saveConfigBlock,
         savedValues: savedValues,
-        defaultValues: defaultValues
+        defaultValues: defaultValues,
+        includes: includes
     };
     
-    // Populate UI with default values
     populateDefaultValues(defaultValues);
-    
     renderSectionCheckboxes(sections);
+    renderIncludesUI();
     updateDriverWarning();
     updateSensorlessWarning();
 }
 
-/**
- * Populate UI fields with default values from the config
- */
 function populateDefaultValues(defaults) {
-    // Set kinematics if available (do this first as it affects UI)
     if (defaults.kinematics) {
         const kinematicsSelect = document.getElementById('kinematicsSelect');
-        // Try to find matching kinematics
         for (const [key, value] of Object.entries(KINEMATICS)) {
             if (value.klipperName === defaults.kinematics) {
                 kinematicsSelect.value = key;
@@ -535,11 +735,9 @@ function populateDefaultValues(defaults) {
         }
     }
     
-    // Check if this is a delta config
     const isDelta = defaults.kinematics === 'delta';
     
     if (isDelta) {
-        // Populate delta-specific fields
         if (defaults.deltaRadius) {
             document.getElementById('deltaRadius').value = defaults.deltaRadius;
             document.getElementById('deltaRadius').placeholder = `Default: ${defaults.deltaRadius}`;
@@ -553,7 +751,6 @@ function populateDefaultValues(defaults) {
             document.getElementById('deltaArmLength').placeholder = `Default: ${defaults.deltaArmLength}`;
         }
     } else {
-        // Populate cartesian bed dimensions
         if (defaults.bedX) {
             document.getElementById('bedX').value = defaults.bedX;
             document.getElementById('bedX').placeholder = `Default: ${defaults.bedX}`;
@@ -568,7 +765,6 @@ function populateDefaultValues(defaults) {
         }
     }
     
-    // Set probe offsets if available (works for both delta and cartesian)
     if (defaults.probeOffsetX !== undefined) {
         document.getElementById('probeOffsetX').value = defaults.probeOffsetX;
         document.getElementById('probeOffsetX').placeholder = `Default: ${defaults.probeOffsetX}`;
@@ -579,10 +775,6 @@ function populateDefaultValues(defaults) {
     }
 }
 
-/**
- * Extract the SAVE_CONFIG block from a config file
- * Returns the entire block including the header
- */
 function extractSaveConfig(configText) {
     const lines = configText.split('\n');
     const saveConfigStart = lines.findIndex(line => 
@@ -593,15 +785,10 @@ function extractSaveConfig(configText) {
         return '';
     }
     
-    // Get everything from SAVE_CONFIG marker to end of file
     const saveConfigLines = lines.slice(saveConfigStart);
     return saveConfigLines.join('\n');
 }
 
-/**
- * Extract saved values from SAVE_CONFIG block
- * Returns object like { 'extruder.control': 'pid', 'extruder.pid_kp': '34.413', ... }
- */
 function parseSavedValues(saveConfigBlock) {
     const savedValues = {};
     if (!saveConfigBlock) return savedValues;
@@ -610,14 +797,12 @@ function parseSavedValues(saveConfigBlock) {
     let currentSection = null;
     
     for (const line of lines) {
-        // Check for section headers like #*# [extruder]
         const sectionMatch = line.match(/^#\*#\s*\[([^\]]+)\]/);
         if (sectionMatch) {
             currentSection = sectionMatch[1].toLowerCase();
             continue;
         }
         
-        // Check for key-value pairs like #*# control = pid
         const valueMatch = line.match(/^#\*#\s*([a-z_]+)\s*=\s*(.+)$/);
         if (valueMatch && currentSection) {
             const key = `${currentSection}.${valueMatch[1]}`;
@@ -628,10 +813,6 @@ function parseSavedValues(saveConfigBlock) {
     return savedValues;
 }
 
-/**
- * Parse ALL sections from config, extracting full content
- * Handles both [section] and #[section] (commented)
- */
 function parseConfigSections(configText) {
     const sections = [];
     const lines = configText.split('\n');
@@ -639,7 +820,6 @@ function parseConfigSections(configText) {
     
     let currentSection = null;
     
-    // Find where SAVE_CONFIG starts so we don't parse it as sections
     const saveConfigStart = lines.findIndex(line => 
         line.includes('#*# <---------------------- SAVE_CONFIG ---------------------->')
     );
@@ -650,7 +830,6 @@ function parseConfigSections(configText) {
         const match = line.match(sectionRegex);
         
         if (match) {
-            // Save previous section
             if (currentSection) {
                 currentSection.endLine = i - 1;
                 currentSection.content = extractSectionContent(lines, currentSection.startLine, currentSection.endLine);
@@ -659,6 +838,12 @@ function parseConfigSections(configText) {
             
             const isCommented = !!match[1];
             const sectionName = match[2].trim();
+            
+            // Skip [include] sections - they are handled separately
+            if (sectionName.toLowerCase().startsWith('include ') || sectionName.toLowerCase() === 'include') {
+                currentSection = null;
+                continue;
+            }
             
             currentSection = {
                 name: sectionName,
@@ -671,7 +856,6 @@ function parseConfigSections(configText) {
         }
     }
     
-    // Don't forget the last section (before SAVE_CONFIG)
     if (currentSection) {
         currentSection.endLine = parseUntil - 1;
         currentSection.content = extractSectionContent(lines, currentSection.startLine, currentSection.endLine);
@@ -681,12 +865,7 @@ function parseConfigSections(configText) {
     return sections;
 }
 
-/**
- * Extract the raw content of a section (including the header)
- * Cleans up trailing content and removes standalone comment blocks
- */
 function extractSectionContent(lines, startLine, endLine) {
-    // Trim trailing empty lines
     while (endLine > startLine && lines[endLine].trim() === '') {
         endLine--;
     }
@@ -696,15 +875,9 @@ function extractSectionContent(lines, startLine, endLine) {
     return content.trim();
 }
 
-/**
- * Extract default values from the config
- * Returns object with bed dimensions, rotation_distance, etc.
- * Handles both cartesian (x,y,z) and delta (a,b,c) configurations
- */
 function extractDefaultValues(configText, sections) {
     const defaults = {};
     
-    // Extract kinematics from printer section first to determine stepper layout
     const printer = sections.find(s => s.name.toLowerCase() === 'printer');
     if (printer) {
         const match = printer.content.match(/kinematics:\s*(\w+)/);
@@ -713,7 +886,6 @@ function extractDefaultValues(configText, sections) {
     
     const isDelta = defaults.kinematics === 'delta';
     
-    // Check for physical endstops in stepper sections
     defaults.hasPhysicalEndstopX = false;
     defaults.hasPhysicalEndstopY = false;
     defaults.hasPhysicalEndstopZ = false;
@@ -723,12 +895,9 @@ function extractDefaultValues(configText, sections) {
     const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
     
     if (stepperX) {
-        // Check if there's a physical endstop pin (not virtual_endstop or probe)
-        // Look for endstop_pin: followed by anything that's not virtual_endstop or probe:
         const endstopMatch = stepperX.content.match(/(?:^|#\s*)endstop_pin:\s*([^#\n]+)/m);
         if (endstopMatch) {
             const pin = endstopMatch[1].trim();
-            // It's a physical pin if it doesn't contain these keywords
             if (!pin.includes('virtual_endstop') && !pin.includes('probe:')) {
                 defaults.hasPhysicalEndstopX = true;
             }
@@ -756,26 +925,17 @@ function extractDefaultValues(configText, sections) {
     }
     
     if (isDelta) {
-        // Delta printer - extract delta-specific parameters
         const stepperA = sections.find(s => s.name.toLowerCase() === 'stepper_a');
-        const stepperB = sections.find(s => s.name.toLowerCase() === 'stepper_b');
-        const stepperC = sections.find(s => s.name.toLowerCase() === 'stepper_c');
         
-        // Extract arm_length from any tower (they should all be the same)
         if (stepperA) {
             const armMatch = stepperA.content.match(/arm_length:\s*([\d.]+)/);
             if (armMatch) defaults.deltaArmLength = parseFloat(armMatch[1]);
         }
         
-        // Extract print radius and height from printer section
         if (printer) {
             const radiusMatch = printer.content.match(/print_radius:\s*([\d.]+)/);
-            const heightMatch = printer.content.match(/minimum_z_position:\s*([-\d.]+)/);
-            const maxZMatch = printer.content.match(/maximum_z_velocity:\s*([\d.]+)/);
-            
             if (radiusMatch) defaults.deltaRadius = parseFloat(radiusMatch[1]);
             
-            // Delta height can be tricky - look for position_endstop in stepper_a
             if (stepperA) {
                 const endstopMatch = stepperA.content.match(/position_endstop:\s*([\d.]+)/);
                 if (endstopMatch) defaults.deltaHeight = parseFloat(endstopMatch[1]);
@@ -783,11 +943,6 @@ function extractDefaultValues(configText, sections) {
         }
         
     } else {
-        // Cartesian/CoreXY printer - extract bed dimensions from stepper sections
-        const stepperX = sections.find(s => s.name.toLowerCase() === 'stepper_x');
-        const stepperY = sections.find(s => s.name.toLowerCase() === 'stepper_y');
-        const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
-        
         if (stepperX) {
             const match = stepperX.content.match(/position_max:\s*([\d.]+)/);
             if (match) defaults.bedX = parseInt(match[1]);
@@ -804,7 +959,6 @@ function extractDefaultValues(configText, sections) {
         }
     }
     
-    // Extract probe offsets if present (works for both delta and cartesian)
     const probe = sections.find(s => 
         s.name.toLowerCase() === 'probe' || 
         s.name.toLowerCase() === 'bltouch'
@@ -819,41 +973,10 @@ function extractDefaultValues(configText, sections) {
     return defaults;
 }
 
-/**
- * Clean section content for output - only removes truly decorative separators
- * Preserves all user comments and explanations
- */
-function cleanSectionContent(content) {
-    // ONLY remove standalone separator lines that are purely decorative
-    // Pattern: lines with 10+ consecutive # or = characters and nothing else meaningful
-    const lines = content.split('\n');
-    const cleaned = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        
-        // Skip lines that are ONLY separators (######### or ========= etc.)
-        // But keep lines that have actual text content
-        const isSeparatorOnly = /^[#=\-_*]{10,}$/.test(line);
-        
-        if (isSeparatorOnly) {
-            continue; // Skip this line
-        }
-        
-        cleaned.push(lines[i]);
-    }
-    
-    let result = cleaned.join('\n');
-    
-    // Clean up excessive blank lines (3+ in a row)
-    result = result.replace(/\n{4,}/g, '\n\n\n');
-    
-    return result.trim();
-}
+// ============================================
+// SECTION RENDERING AND UI
+// ============================================
 
-/**
- * Categorize sections for UI grouping
- */
 function categorizeSection(sectionName) {
     const name = sectionName.toLowerCase();
     
@@ -874,9 +997,6 @@ function categorizeSection(sectionName) {
     return 'Other';
 }
 
-/**
- * Render section checkboxes in the UI, grouped by category
- */
 function renderSectionCheckboxes(sections) {
     const container = document.getElementById('sections-container');
     if (!container) return;
@@ -888,7 +1008,6 @@ function renderSectionCheckboxes(sections) {
         return;
     }
     
-    // Group by category
     const categories = {};
     sections.forEach((section, index) => {
         const category = categorizeSection(section.name);
@@ -898,7 +1017,6 @@ function renderSectionCheckboxes(sections) {
         categories[category].push({ ...section, index });
     });
     
-    // Category render order
     const categoryOrder = [
         'Core', 'MCU', 'Steppers', 'TMC Drivers', 'Extruders', 
         'Heaters', 'Fans', 'Probing', 'Sensors', 'Lighting', 'Pins', 'Macros', 'Menu', 'Other'
@@ -907,7 +1025,6 @@ function renderSectionCheckboxes(sections) {
     categoryOrder.forEach(category => {
         if (!categories[category] || categories[category].length === 0) return;
         
-        // Category header with toggle
         const header = document.createElement('div');
         header.className = 'section-category-header';
         header.innerHTML = `
@@ -916,7 +1033,6 @@ function renderSectionCheckboxes(sections) {
         `;
         container.appendChild(header);
         
-        // Section checkboxes
         categories[category].forEach(section => {
             const div = document.createElement('div');
             div.className = 'section-item';
@@ -944,13 +1060,9 @@ function renderSectionCheckboxes(sections) {
         });
     });
     
-    // Update section count
     updateSectionCount();
 }
 
-/**
- * Toggle all sections in a category
- */
 function toggleCategory(category) {
     const items = document.querySelectorAll(`.section-item[data-category="${category}"] input[type="checkbox"]`);
     const allChecked = Array.from(items).every(cb => cb.checked);
@@ -958,18 +1070,12 @@ function toggleCategory(category) {
     updateSectionCount();
 }
 
-/**
- * Toggle all sections on/off
- */
 function toggleAllSections(enabled) {
     const checkboxes = document.querySelectorAll('#sections-container input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = enabled);
     updateSectionCount();
 }
 
-/**
- * Update the section count display
- */
 function updateSectionCount() {
     const total = document.querySelectorAll('#sections-container input[type="checkbox"]').length;
     const checked = document.querySelectorAll('#sections-container input[type="checkbox"]:checked').length;
@@ -979,21 +1085,16 @@ function updateSectionCount() {
     }
 }
 
-// Add event listener for checkbox changes
 document.addEventListener('change', (e) => {
     if (e.target.matches('#sections-container input[type="checkbox"]')) {
         updateSectionCount();
     }
 });
 
-/**
- * MAIN GENERATE FUNCTION
- * Builds the config based on selected sections
- */
-/**
- * Generate the config with a MINIMAL MODIFICATION approach
- * Keeps the original file structure intact, only modifies specific values
- */
+// ============================================
+// CONFIG GENERATION
+// ============================================
+
 function generate() {
     const sections = window.currentConfigData.sections;
     const fileName = window.currentConfigData.fileName;
@@ -1004,29 +1105,23 @@ function generate() {
         return;
     }
     
-    // Get kinematics
     const kinematicsKey = document.getElementById('kinematicsSelect').value;
     const kinematics = KINEMATICS[kinematicsKey];
     
-    // Get all settings
     const settings = {
         kinematics: kinematicsKey,
         kinematicsKlipper: kinematics.klipperName,
         usesDelta: kinematics.usesDelta,
-        // Bed dimensions (cartesian)
         bedX: parseInt(document.getElementById('bedX').value) || 235,
         bedY: parseInt(document.getElementById('bedY').value) || 235,
         bedZ: parseInt(document.getElementById('bedZ').value) || 250,
-        // Delta dimensions
         deltaRadius: parseInt(document.getElementById('deltaRadius').value) || 140,
         deltaHeight: parseInt(document.getElementById('deltaHeight').value) || 300,
         deltaArmLength: parseInt(document.getElementById('deltaArmLength').value) || 270,
-        // Z Motors
         zMotorCount: parseInt(document.getElementById('zMotorCount').value) || 1,
         zLevelingType: document.getElementById('zMotorCount').value === '4' 
             ? document.getElementById('quadLevelingType').value 
             : document.getElementById('zLevelingType')?.value || 'none',
-        // Endstops
         endstopX: document.getElementById('endstopX').value,
         endstopY: document.getElementById('endstopY').value,
         zEndstopType: document.getElementById('zEndstopType').value,
@@ -1035,56 +1130,60 @@ function generate() {
         sensorlessXY: document.getElementById('sensorlessXY').checked
     };
     
-    // Get selected section indices
     const selectedIndices = Array.from(
         document.querySelectorAll('#sections-container input[type="checkbox"]:checked')
     ).map(cb => parseInt(cb.value));
     
-    // Split original file into lines for processing
     let lines = rawConfig.split('\n');
     
-    // Find SAVE_CONFIG start
     const saveConfigStart = lines.findIndex(line => 
         line.includes('#*# <---------------------- SAVE_CONFIG ---------------------->')
     );
     
-    // Process the file line by line
+    // Generate includes block
+    let includesBlock = generateIncludesBlock();
+    
     let output = '';
     let currentSectionIndex = -1;
     let inSaveConfig = false;
     let i = 0;
     
+    // Add includes at the top of the file
+    if (includesBlock) {
+        output += includesBlock + '\n';
+    }
+    
     while (i < lines.length) {
         const line = lines[i];
         
-        // Check if we've reached SAVE_CONFIG
         if (saveConfigStart !== -1 && i >= saveConfigStart) {
             inSaveConfig = true;
         }
         
-        // If in SAVE_CONFIG, just output as-is
         if (inSaveConfig) {
             output += line + '\n';
             i++;
             continue;
         }
         
-        // Check if this line starts a new section
+        // Skip existing [include] lines - we handle them separately now
+        const includeMatch = line.match(/^(\s*#\s*)?\[include\s+[^\]]+\]/i);
+        if (includeMatch) {
+            i++;
+            continue;
+        }
+        
         const sectionMatch = line.match(/^(\s*#\s*)?\[([^\]]+)\]/);
         if (sectionMatch) {
-            // Find which section this is
             currentSectionIndex = sections.findIndex((s, idx) => 
                 s.startLine === i
             );
         }
         
-        // Determine if current section is selected
         const isCurrentSectionSelected = currentSectionIndex !== -1 && 
                                         selectedIndices.includes(currentSectionIndex);
         
-        // Process the line based on section selection
         if (currentSectionIndex === -1) {
-            // Before any section or between sections - keep as-is
             output += line + '\n';
             i++;
         } else {
@@ -1092,31 +1191,25 @@ function generate() {
             const wasCommented = section.originallyCommented;
             
             if (isCurrentSectionSelected) {
-                // Section is ENABLED
                 let processedLine = line;
                 
-                // Uncomment if it was originally commented
                 if (wasCommented && line.trim().startsWith('#')) {
                     processedLine = line.replace(/^(\s*)#\s?/, '$1');
                 }
                 
-                // Apply modifications to specific values
                 const result = applyLineModifications(processedLine, section.name, settings, 
                                                      window.currentConfigData.savedValues, lines, i);
                 
-                // Check if we need to skip the next line (when line was replaced)
                 if (result.skipNext) {
                     output += result.line + '\n';
-                    i += 2; // Skip current and next line
+                    i += 2;
                 } else {
                     output += result.line + '\n';
                     i++;
                 }
             } else {
-                // Section is DISABLED
                 let processedLine = line;
                 
-                // Comment out if it wasn't originally commented
                 if (!wasCommented && !line.trim().startsWith('#') && line.trim() !== '') {
                     processedLine = '#' + line;
                 }
@@ -1127,32 +1220,24 @@ function generate() {
         }
     }
     
-    // Add generated Z motor sections if needed (after original config, before SAVE_CONFIG)
     if (!settings.usesDelta && settings.zMotorCount > 1 && saveConfigStart !== -1) {
         let additionalSections = generateAdditionalZMotors(settings, sections);
         
-        // Insert before SAVE_CONFIG
         const beforeSaveConfig = output.substring(0, output.indexOf('#*# <---------------------- SAVE_CONFIG'));
         const saveConfigBlock = output.substring(output.indexOf('#*# <---------------------- SAVE_CONFIG'));
         
         output = beforeSaveConfig + '\n' + additionalSections + '\n' + saveConfigBlock;
     } else if (!settings.usesDelta && settings.zMotorCount > 1) {
-        // No SAVE_CONFIG block, append at end
         output += '\n' + generateAdditionalZMotors(settings, sections);
     }
     
     document.getElementById('output').value = output;
 }
 
-/**
- * Apply modifications to a single line based on section context
- * Returns {line: string, skipNext: boolean} to handle multi-line replacements
- */
 function applyLineModifications(line, sectionName, settings, savedValues, allLines, currentIndex) {
     const name = sectionName.toLowerCase();
     const trimmedLine = line.trim();
     
-    // Check if this line should be commented due to SAVE_CONFIG override
     if (savedValues) {
         const keyMatch = trimmedLine.match(/^\s*([a-z_]+)\s*[:=]/);
         if (keyMatch && !trimmedLine.startsWith('#')) {
@@ -1163,79 +1248,40 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
         }
     }
     
-    // Apply modifications based on section and line content
     let modified = line;
     let skipNext = false;
     
-    // Kinematics modifications
     if (name === 'printer' && trimmedLine.startsWith('kinematics:')) {
         modified = line.replace(/kinematics:\s*\w+/, `kinematics: ${settings.kinematicsKlipper}`);
     }
     
-    // Sensorless homing modifications
     if (name === 'stepper_x' || name === 'stepper_y') {
         const isStepper = name === 'stepper_x' || name === 'stepper_y';
         
         if (settings.sensorlessXY && isStepper) {
-            // ENABLE sensorless homing
-            
-            // If this is a physical endstop_pin line, comment it and add virtual on next line
             if (trimmedLine.match(/^endstop_pin:/) && !trimmedLine.includes('virtual_endstop')) {
-                const axis = name === 'stepper_x' ? 'x' : 'y';
                 modified = `#${line}  # Physical endstop (disabled for sensorless)\nendstop_pin: tmc2209_${name}:virtual_endstop`;
             }
             
-            // If this is already a commented physical endstop, keep it commented
-            if (trimmedLine.match(/^#.*endstop_pin:/) && !trimmedLine.includes('virtual_endstop')) {
-                // Check if next line is the virtual endstop - if not, add it
-                if (currentIndex + 1 < allLines.length) {
-                    const nextLine = allLines[currentIndex + 1].trim();
-                    if (!nextLine.includes('virtual_endstop')) {
-                        const axis = name === 'stepper_x' ? 'x' : 'y';
-                        modified = line + '\nendstop_pin: tmc2209_${name}:virtual_endstop';
-                    }
-                }
-            }
-            
-            // Add or modify homing_retract_dist to 0
             if (trimmedLine.match(/^homing_retract_dist:/)) {
                 modified = line.replace(/homing_retract_dist:\s*[\d.]+/, 'homing_retract_dist: 0');
             }
             
         } else if (!settings.sensorlessXY && isStepper) {
-            // DISABLE sensorless homing (restore physical endstop)
-            
-            // If this is a commented physical endstop, uncomment it
-            // Match any pin name format: ^PC0, !PA7, gpio15, ^!PB3, etc.
-            // Basically anything that's NOT virtual_endstop or probe:
             if (trimmedLine.match(/^#\s*endstop_pin:/) && 
                 !trimmedLine.includes('virtual_endstop') && 
                 !trimmedLine.includes('probe:')) {
-                // Uncomment the physical endstop pin
                 modified = line.replace(/^(\s*)#\s*/, '$1');
-                
-                // Check if next line has the virtual endstop - if so, comment it out
-                if (currentIndex + 1 < allLines.length) {
-                    const nextLine = allLines[currentIndex + 1];
-                    if (nextLine.includes('virtual_endstop')) {
-                        // We'll comment out the virtual endstop on the next line
-                        // But we can't modify it from here, so we mark the virtual line for commenting
-                    }
-                }
             }
             
-            // If line has virtual_endstop, comment it out
             if (trimmedLine.match(/^endstop_pin:.*virtual_endstop/)) {
-                // Check if previous line has a commented physical endstop
                 if (currentIndex > 0) {
                     const prevLine = allLines[currentIndex - 1];
-                    // Check if previous line is now an uncommented physical endstop
                     if (prevLine.trim().match(/^endstop_pin:/) && 
                         !prevLine.includes('virtual_endstop') &&
                         !prevLine.includes('#')) {
-                        // Previous line was the uncommented physical endstop, skip this virtual line
                         skipNext = true;
-                        modified = '';  // Don't output this line
+                        modified = '';
                     } else {
                         modified = `#${line}  # Sensorless disabled - configure physical endstop_pin`;
                     }
@@ -1244,27 +1290,21 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
                 }
             }
             
-            // Restore normal homing_retract_dist if it was set to 0
             if (trimmedLine.match(/^homing_retract_dist:\s*0/)) {
                 modified = line.replace(/homing_retract_dist:\s*0/, 'homing_retract_dist: 5');
             }
         }
     }
     
-    // TMC driver modifications for sensorless
     if (name.startsWith('tmc2209 stepper_x') || name.startsWith('tmc2209 stepper_y')) {
         if (settings.sensorlessXY) {
-            // Enable diag_pin and driver_SGTHRS
             if (trimmedLine.match(/^#.*diag_pin:/)) {
-                // Uncomment diag_pin
                 modified = line.replace(/^(\s*)#\s*/, '$1');
             }
             if (trimmedLine.match(/^#.*driver_SGTHRS:/)) {
-                // Uncomment driver_SGTHRS
                 modified = line.replace(/^(\s*)#\s*/, '$1');
             }
         } else {
-            // Disable sensorless - comment out diag_pin and driver_SGTHRS
             if (trimmedLine.match(/^diag_pin:/) && !trimmedLine.startsWith('#')) {
                 modified = '#' + line + '  # (sensorless homing disabled)';
             }
@@ -1274,7 +1314,6 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
         }
     }
     
-    // Bed dimension modifications for cartesian
     if (!settings.usesDelta) {
         if (name === 'stepper_x' && trimmedLine.match(/^position_max:/)) {
             modified = line.replace(/position_max:\s*[\d.]+/, `position_max: ${settings.bedX}`);
@@ -1303,7 +1342,6 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
         }
     }
     
-    // Delta dimension modifications
     if (settings.usesDelta) {
         if ((name === 'stepper_a' || name === 'stepper_b' || name === 'stepper_c') && trimmedLine.match(/^position_max:/)) {
             modified = line.replace(/position_max:\s*[\d.]+/, `position_max: ${settings.deltaHeight}`);
@@ -1313,7 +1351,6 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
         }
     }
     
-    // Probe offset modifications
     if ((name === 'probe' || name === 'bltouch') && trimmedLine.match(/^x_offset:/)) {
         modified = line.replace(/x_offset:\s*[-\d.]+/, `x_offset: ${settings.probeOffsetX}`);
     }
@@ -1324,9 +1361,6 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
     return {line: modified, skipNext: skipNext};
 }
 
-/**
- * Generate additional Z motor sections
- */
 function generateAdditionalZMotors(settings, sections) {
     if (settings.zMotorCount <= 1) return '';
     
@@ -1334,502 +1368,103 @@ function generateAdditionalZMotors(settings, sections) {
     let cfg = '';
     
     cfg += `${separator}`;
-    cfg += `# ADDITIONAL Z MOTORS (Generated by Config Tool)\n`;
+    cfg += `# ADDITIONAL Z MOTORS (Generated)\n`;
     cfg += `${separator}\n\n`;
     
-    // Find the original stepper_z to get rotation_distance
     const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
     const stepperZContent = stepperZ ? stepperZ.content : '';
     
-    // Try to extract rotation_distance from stepper_z
     const rotDistMatch = stepperZContent.match(/rotation_distance:\s*([\d.]+)/);
     const rotationDistance = rotDistMatch ? rotDistMatch[1] : '8';
     
-    // Try to extract microsteps from stepper_z
     const microMatch = stepperZContent.match(/microsteps:\s*(\d+)/);
     const microsteps = microMatch ? microMatch[1] : '16';
     
     for (let i = 1; i < settings.zMotorCount; i++) {
         cfg += `[stepper_z${i}]\n`;
-        cfg += `# Copy pins from your board's available stepper driver\n`;
-        cfg += `# Typically: E1, E2, E3, or additional driver headers\n`;
-        cfg += `step_pin: CHANGE_ME  # Example: PB3 for E1 on many boards\n`;
-        cfg += `dir_pin: CHANGE_ME   # Example: PB4 for E1 on many boards\n`;
-        cfg += `enable_pin: !CHANGE_ME  # Example: !PD2 for E1 on many boards\n`;
+        cfg += `step_pin: CHANGE_ME\n`;
+        cfg += `dir_pin: CHANGE_ME\n`;
+        cfg += `enable_pin: !CHANGE_ME\n`;
         cfg += `microsteps: ${microsteps}\n`;
-        cfg += `rotation_distance: ${rotationDistance}  # Must match stepper_z\n`;
-        cfg += `# IMPORTANT: Do NOT define endstop_pin for additional Z steppers\n`;
-        cfg += `# Only stepper_z should have an endstop\n\n`;
+        cfg += `rotation_distance: ${rotationDistance}\n\n`;
     }
     
-    // Check if there are TMC sections for stepper_z and add matching ones for additional Z
     const tmcZ = sections.find(s => {
         const name = s.name.toLowerCase();
         return name.includes('tmc') && name.includes('stepper_z') && !name.includes('stepper_z1');
     });
     
     if (tmcZ) {
-        const tmcType = tmcZ.name.split(' ')[0]; // Get TMC type (e.g., tmc2209, tmc2130)
+        const tmcType = tmcZ.name.split(' ')[0];
         const tmcContent = tmcZ.content;
         
-        // Extract run_current from original TMC section
         const currentMatch = tmcContent.match(/run_current:\s*([\d.]+)/);
         const runCurrent = currentMatch ? currentMatch[1] : '0.580';
         
         for (let i = 1; i < settings.zMotorCount; i++) {
             cfg += `[${tmcType} stepper_z${i}]\n`;
-            cfg += `uart_pin: CHANGE_ME  # UART pin for this driver\n`;
-            cfg += `run_current: ${runCurrent}  # Match stepper_z current\n`;
+            cfg += `uart_pin: CHANGE_ME\n`;
+            cfg += `run_current: ${runCurrent}\n`;
             cfg += `stealthchop_threshold: 999999\n\n`;
         }
     }
     
-    // Add z_tilt or quad_gantry_level section
     if (settings.zLevelingType === 'z_tilt') {
         cfg += `[z_tilt]\n`;
-        cfg += `# ADJUST THESE VALUES TO MATCH YOUR PRINTER!\n`;
-        cfg += `# z_positions: Physical locations of the Z motors\n`;
-        cfg += `# points: Probe points (must be reachable by probe)\n\n`;
+        cfg += `z_positions:\n`;
         if (settings.zMotorCount === 2) {
-            cfg += `# Example for 2 Z motors (left/right configuration)\n`;
-            cfg += `z_positions:\n`;
-            cfg += `    -50, ${Math.round(settings.bedY / 2)}      # Left Z motor (behind bed edge)\n`;
-            cfg += `    ${settings.bedX + 50}, ${Math.round(settings.bedY / 2)}  # Right Z motor (behind bed edge)\n`;
-            cfg += `points:\n`;
-            cfg += `    30, ${Math.round(settings.bedY / 2)}     # Left probe point\n`;
-            cfg += `    ${settings.bedX - 30}, ${Math.round(settings.bedY / 2)}  # Right probe point\n`;
+            cfg += `    -50, ${Math.round(settings.bedY / 2)}\n`;
+            cfg += `    ${settings.bedX + 50}, ${Math.round(settings.bedY / 2)}\n`;
         } else if (settings.zMotorCount === 3) {
-            cfg += `# Example for 3 Z motors (triangle configuration)\n`;
-            cfg += `z_positions:\n`;
-            cfg += `    ${Math.round(settings.bedX / 2)}, -50                    # Front center motor\n`;
-            cfg += `    -50, ${settings.bedY + 50}  # Rear left motor\n`;
-            cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}     # Rear right motor\n`;
-            cfg += `points:\n`;
-            cfg += `    ${Math.round(settings.bedX / 2)}, 30    # Front center probe point\n`;
-            cfg += `    30, ${settings.bedY - 30}               # Rear left probe point\n`;
-            cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}  # Rear right probe point\n`;
-        } else {
-            cfg += `# Example for 4 Z motors (quad configuration)\n`;
-            cfg += `z_positions:\n`;
-            cfg += `    -50, -50          # Front left motor\n`;
-            cfg += `    -50, ${settings.bedY + 50}      # Rear left motor\n`;
-            cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}  # Rear right motor\n`;
-            cfg += `    ${settings.bedX + 50}, -50  # Front right motor\n`;
-            cfg += `points:\n`;
-            cfg += `    30, 30\n`;
-            cfg += `    30, ${settings.bedY - 30}\n`;
-            cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}\n`;
-            cfg += `    ${settings.bedX - 30}, 30\n`;
+            cfg += `    ${Math.round(settings.bedX / 2)}, -50\n`;
+            cfg += `    -50, ${settings.bedY + 50}\n`;
+            cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}\n`;
         }
+        cfg += `points:\n`;
+        cfg += `    30, ${Math.round(settings.bedY / 2)}\n`;
+        cfg += `    ${settings.bedX - 30}, ${Math.round(settings.bedY / 2)}\n`;
         cfg += `speed: 150\n`;
-        cfg += `horizontal_move_z: 5  # Height to lift Z before moving between points\n`;
-        cfg += `retries: 5            # Number of times to retry if adjustment fails\n`;
-        cfg += `retry_tolerance: 0.0075  # Maximum allowed error (mm)\n\n`;
+        cfg += `horizontal_move_z: 5\n`;
+        cfg += `retries: 5\n`;
+        cfg += `retry_tolerance: 0.0075\n\n`;
     } else if (settings.zLevelingType === 'quad_gantry_level') {
         cfg += `[quad_gantry_level]\n`;
-        cfg += `# ADJUST THESE VALUES TO MATCH YOUR PRINTER!\n`;
-        cfg += `# gantry_corners: Physical locations where the gantry is attached to Z motors\n`;
-        cfg += `#   These are typically OUTSIDE the bed area\n`;
-        cfg += `# points: Probe points (must be reachable by probe and INSIDE bed area)\n\n`;
         cfg += `gantry_corners:\n`;
-        cfg += `    -60, -10              # Front left gantry attachment point\n`;
-        cfg += `    ${settings.bedX + 60}, ${settings.bedY + 60}  # Rear right gantry attachment point\n`;
+        cfg += `    -60, -10\n`;
+        cfg += `    ${settings.bedX + 60}, ${settings.bedY + 60}\n`;
         cfg += `points:\n`;
-        cfg += `    30, 30                # Front left probe point\n`;
-        cfg += `    30, ${settings.bedY - 30}               # Rear left probe point\n`;
-        cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}  # Rear right probe point\n`;
-        cfg += `    ${settings.bedX - 30}, 30               # Front right probe point\n`;
+        cfg += `    30, 30\n`;
+        cfg += `    30, ${settings.bedY - 30}\n`;
+        cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}\n`;
+        cfg += `    ${settings.bedX - 30}, 30\n`;
         cfg += `speed: 150\n`;
-        cfg += `horizontal_move_z: 5  # Height to lift Z before moving between points\n`;
-        cfg += `retries: 5            # Number of times to retry if adjustment fails\n`;
-        cfg += `retry_tolerance: 0.0075  # Maximum allowed error (mm)\n`;
-        cfg += `max_adjust: 10        # Maximum adjustment allowed (mm)\n\n`;
+        cfg += `horizontal_move_z: 5\n`;
+        cfg += `retries: 5\n`;
+        cfg += `retry_tolerance: 0.0075\n`;
+        cfg += `max_adjust: 10\n\n`;
     }
     
     return cfg;
 }
-        
-/**
- * Comment out lines in section content that have corresponding saved values
- * This prevents conflicts when Klipper loads the config
- */
-function commentOutSavedLines(content, sectionName, savedValues) {
-    if (!savedValues || Object.keys(savedValues).length === 0) {
-        return content;
-    }
-    
-    const lines = content.split('\n');
-    const normalizedSection = sectionName.toLowerCase();
-    
-    const modifiedLines = lines.map(line => {
-        // Skip lines that are already comments or section headers
-        if (line.trim().startsWith('#') || line.trim().startsWith('[')) {
-            return line;
-        }
-        
-        // Check if this line has a key that exists in saved values
-        const match = line.match(/^\s*([a-z_]+)\s*[:=]/);
-        if (match) {
-            const key = `${normalizedSection}.${match[1]}`;
-            if (savedValues[key] !== undefined) {
-                // Comment out this line with a note
-                return `#${line}  # (overridden in SAVE_CONFIG)`;
-            }
-        }
-        
-        return line;
-    });
-    
-    return modifiedLines.join('\n');
-}
 
-/**
- * Uncomment a section (remove leading # from all lines)
- */
-function uncommentSection(content) {
-    return content.split('\n').map(line => {
-        // Remove leading # and optional space
-        return line.replace(/^#\s?/, '');
-    }).join('\n');
-}
+// ============================================
+// DOWNLOAD FUNCTION
+// ============================================
 
-/**
- * Comment out a section (add # to all lines)
- */
-function commentSection(content) {
-    return content.split('\n').map(line => {
-        // Don't double-comment
-        if (line.trim().startsWith('#') || line.trim() === '') {
-            return line;
-        }
-        return '#' + line;
-    }).join('\n');
-}
-
-/**
- * Apply kinematics settings to [printer] section
- */
-function applyKinematics(content, sectionName, settings) {
-    const name = sectionName.toLowerCase();
-    
-    if (name !== 'printer') return content;
-    
-    const { kinematicsKlipper, usesDelta, deltaRadius, deltaHeight, deltaArmLength, bedZ } = settings;
-    
-    // Update kinematics type
-    content = content.replace(/kinematics:\s*\w+/, `kinematics: ${kinematicsKlipper}`);
-    
-    // For delta printers, add/update delta-specific settings
-    if (usesDelta && kinematicsKlipper === 'delta') {
-        // Update or add delta_radius
-        if (content.includes('delta_radius')) {
-            content = content.replace(/delta_radius:\s*[\d.]+/, `delta_radius: ${deltaRadius}`);
-        } else {
-            content = content.replace(/(kinematics:.*)/, `$1\ndelta_radius: ${deltaRadius}`);
-        }
-        
-        // Add print_radius if not present
-        if (!content.includes('print_radius')) {
-            content = content.replace(/(delta_radius:.*)/, `$1\nprint_radius: ${deltaRadius}`);
-        } else {
-            content = content.replace(/print_radius:\s*[\d.]+/, `print_radius: ${deltaRadius}`);
-        }
-        
-        // Add/update arm_length
-        if (!content.includes('arm_length')) {
-            content = content.replace(/(print_radius:.*)/, `$1\narm_length: ${deltaArmLength}`);
-        } else {
-            content = content.replace(/arm_length:\s*[\d.]+/, `arm_length: ${deltaArmLength}`);
-        }
-        
-        // Add minimum_z_position for delta
-        if (!content.includes('minimum_z_position')) {
-            content = content.replace(/(arm_length:.*)/, `$1\nminimum_z_position: -5`);
-        }
-        
-        // For delta, adjust max_z_velocity
-        content = content.replace(/max_z_velocity:\s*[\d.]+/, `max_z_velocity: 50`);
-    }
-    
-    return content;
-}
-
-/**
- * Apply bed dimension overrides to stepper sections
- */
-function applyBedDimensions(content, sectionName, settings) {
-    const name = sectionName.toLowerCase();
-    const { bedX, bedY, bedZ, endstopX, endstopY, usesDelta, deltaRadius, deltaHeight } = settings;
-    
-    // For delta printers, handle stepper_a, stepper_b, stepper_c (towers)
-    if (usesDelta) {
-        if (name === 'stepper_a' || name === 'stepper_b' || name === 'stepper_c') {
-            // Delta towers typically home to max
-            content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${deltaHeight}`);
-            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${deltaHeight}`);
-            // Ensure homing to max
-            if (!content.includes('homing_positive_dir')) {
-                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
-            }
-        } else if (name === 'stepper_z') {
-            // Some delta configs use stepper_z for the first tower
-            content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${deltaHeight}`);
-        }
-        return content;
-    }
-    
-    // Cartesian/CoreXY handling
-    if (name === 'stepper_x') {
-        content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${bedX}`);
-        // Handle position_endstop based on endstop position
-        if (endstopX === 'max') {
-            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${bedX}`);
-        } else {
-            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: 0`);
-        }
-    } else if (name === 'stepper_y') {
-        content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${bedY}`);
-        if (endstopY === 'max') {
-            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${bedY}`);
-        } else {
-            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: 0`);
-        }
-    } else if (name === 'stepper_z') {
-        content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${bedZ}`);
-    } else if (name === 'safe_z_home') {
-        // Center the safe z home position
-        const centerX = Math.round(bedX / 2);
-        const centerY = Math.round(bedY / 2);
-        content = content.replace(/home_xy_position:\s*[\d.]+\s*,\s*[\d.]+/, `home_xy_position: ${centerX}, ${centerY}`);
-    } else if (name === 'bed_mesh') {
-        // Update bed mesh bounds
-        content = content.replace(/mesh_max:\s*[\d.]+\s*,\s*[\d.]+/, `mesh_max: ${bedX - 10}, ${bedY - 10}`);
-    }
-    
-    return content;
-}
-
-/**
- * Apply endstop settings (position and homing direction)
- * Preserves original pins as comments for reference
- */
-function applyEndstopSettings(content, sectionName, settings) {
-    const name = sectionName.toLowerCase();
-    const { endstopX, endstopY, zEndstopType, bedZ } = settings;
-    
-    // Handle X stepper endstop
-    if (name === 'stepper_x') {
-        if (endstopX === 'max') {
-            // Homing to max position
-            content = content.replace(/homing_positive_dir:\s*(true|false)/i, 'homing_positive_dir: true');
-            if (!content.includes('homing_positive_dir')) {
-                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
-            }
-        } else {
-            // Homing to min (default) - remove homing_positive_dir if present
-            content = content.replace(/\nhoming_positive_dir:.*$/m, '');
-        }
-    }
-    
-    // Handle Y stepper endstop  
-    if (name === 'stepper_y') {
-        if (endstopY === 'max') {
-            content = content.replace(/homing_positive_dir:\s*(true|false)/i, 'homing_positive_dir: true');
-            if (!content.includes('homing_positive_dir')) {
-                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
-            }
-        } else {
-            content = content.replace(/\nhoming_positive_dir:.*$/m, '');
-        }
-    }
-    
-    // Handle Z stepper endstop
-    if (name === 'stepper_z') {
-        if (zEndstopType === 'probe') {
-            // Use probe as endstop, keep original pin as comment
-            content = content.replace(
-                /endstop_pin:\s*(\^?[A-Z0-9_]+)/i, 
-                'endstop_pin: probe:z_virtual_endstop  #$1'
-            );
-            // Comment out position_endstop but keep the value
-            content = content.replace(/^(position_endstop:.*)$/m, '#$1');
-            // Add position_min for probing below 0
-            if (!content.includes('position_min')) {
-                content = content.replace(/(position_max:.*)/, '$1\nposition_min: -5');
-            }
-        } else if (zEndstopType === 'switch_max') {
-            // Endstop at top
-            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${bedZ}`);
-            content = content.replace(/homing_positive_dir:\s*(true|false)/i, 'homing_positive_dir: true');
-            if (!content.includes('homing_positive_dir')) {
-                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
-            }
-        } else {
-            // switch_min - default, endstop at bottom
-            content = content.replace(/position_endstop:\s*[\d.]+/, 'position_endstop: 0');
-            content = content.replace(/\nhoming_positive_dir:.*$/m, '');
-        }
-    }
-    
-    return content;
-}
-
-/**
- * Apply sensorless homing configuration
- * Preserves original endstop pin as a comment for reference
- */
-function applySensorlessHoming(content, sectionName, settings) {
-    const name = sectionName.toLowerCase();
-    const { sensorlessXY, endstopX, endstopY } = settings;
-    
-    if (!sensorlessXY) return content;
-    
-    // Apply to stepper_x
-    if (name === 'stepper_x') {
-        // Change endstop pin to use TMC virtual endstop, keep original as comment
-        content = content.replace(
-            /endstop_pin:\s*(\^?[A-Z0-9_]+)/i, 
-            'endstop_pin: tmc2209_stepper_x:virtual_endstop  #$1'
-        );
-        // Add homing_retract_dist: 0 for sensorless
-        if (!content.includes('homing_retract_dist')) {
-            content = content.replace(/(homing_speed:.*)/, '$1\nhoming_retract_dist: 0');
-        } else {
-            content = content.replace(/homing_retract_dist:\s*[\d.]+/, 'homing_retract_dist: 0');
-        }
-    }
-    
-    // Apply to stepper_y
-    if (name === 'stepper_y') {
-        content = content.replace(
-            /endstop_pin:\s*(\^?[A-Z0-9_]+)/i, 
-            'endstop_pin: tmc2209_stepper_y:virtual_endstop  #$1'
-        );
-        if (!content.includes('homing_retract_dist')) {
-            content = content.replace(/(homing_speed:.*)/, '$1\nhoming_retract_dist: 0');
-        } else {
-            content = content.replace(/homing_retract_dist:\s*[\d.]+/, 'homing_retract_dist: 0');
-        }
-    }
-    
-    // Enable diag_pin in TMC sections
-    if (name === 'tmc2209 stepper_x' || name === 'tmc2209 stepper_y') {
-        // Uncomment diag_pin if it's commented
-        content = content.replace(/^#+(diag_pin:.*)$/m, '$1');
-        // Add driver_SGTHRS if not present (StallGuard threshold)
-        if (!content.includes('driver_SGTHRS')) {
-            content = content.replace(/(run_current:.*)/, '$1\ndriver_SGTHRS: 100  # Adjust 0-255, higher = more sensitive');
-        }
-    }
-    
-    return content;
-}
-
-/**
- * Apply probe settings (offsets, safe_z_home, etc.)
- */
-function applyProbeSettings(content, sectionName, settings) {
-    const name = sectionName.toLowerCase();
-    const { zEndstopType, probeOffsetX, probeOffsetY, bedX, bedY } = settings;
-    
-    if (zEndstopType !== 'probe') return content;
-    
-    // Update BLTouch/probe offsets
-    if (name === 'bltouch' || name === 'probe') {
-        content = content.replace(/x_offset:\s*[-\d.]+/, `x_offset: ${probeOffsetX}`);
-        content = content.replace(/y_offset:\s*[-\d.]+/, `y_offset: ${probeOffsetY}`);
-    }
-    
-    // Update safe_z_home to account for probe offset
-    if (name === 'safe_z_home') {
-        // Calculate safe home position (probe must be over bed)
-        let homeX = Math.round(bedX / 2);
-        let homeY = Math.round(bedY / 2);
-        
-        // Adjust if probe offset would put it off the bed
-        homeX = Math.max(Math.abs(probeOffsetX), Math.min(homeX, bedX - Math.abs(probeOffsetX)));
-        homeY = Math.max(Math.abs(probeOffsetY), Math.min(homeY, bedY - Math.abs(probeOffsetY)));
-        
-        content = content.replace(/home_xy_position:\s*[\d.]+\s*,\s*[\d.]+/, `home_xy_position: ${homeX}, ${homeY}`);
-    }
-    
-    return content;
-}
-
-/**
- * Show/hide probe offset inputs based on Z endstop type
- * Also automatically enable probe sections when probe is selected
- */
-function updateZEndstopOptions() {
-    const zType = document.getElementById('zEndstopType').value;
-    const probeGroup = document.getElementById('probeOffsetGroup');
-    
-    if (zType === 'probe') {
-        probeGroup.style.display = 'block';
-        
-        // Automatically enable probe-related sections
-        const checkboxes = document.querySelectorAll('#sections-container input[type="checkbox"]');
-        checkboxes.forEach(cb => {
-            const sectionName = cb.dataset.sectionName.toLowerCase();
-            // Enable probe, bltouch, safe_z_home, and bed_mesh sections
-            if (sectionName === 'probe' || 
-                sectionName === 'bltouch' || 
-                sectionName === 'safe_z_home' ||
-                sectionName === 'bed_mesh') {
-                cb.checked = true;
-            }
-        });
-        updateSectionCount();
-    } else {
-        probeGroup.style.display = 'none';
-        
-        // Optionally disable probe sections when switching away from probe
-        // (commented out to avoid accidentally disabling sections user may want)
-        /*
-        const checkboxes = document.querySelectorAll('#sections-container input[type="checkbox"]');
-        checkboxes.forEach(cb => {
-            const sectionName = cb.dataset.sectionName.toLowerCase();
-            if (sectionName === 'probe' || sectionName === 'bltouch') {
-                cb.checked = false;
-            }
-        });
-        updateSectionCount();
-        */
-    }
-}
-
-/**
- * Download the generated config
- */
 function download() {
-    const text = document.getElementById('output').value;
-    if (!text) {
+    const output = document.getElementById('output').value;
+    if (!output) {
         alert('Please generate a config first.');
         return;
     }
     
-    const blob = new Blob([text], { type: 'text/plain' });
+    const blob = new Blob([output], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = 'printer.cfg';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(a.href);
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
-
-/**
- * Board selection change handler
- */
-document.addEventListener('DOMContentLoaded', () => {
-    const boardSelect = document.getElementById('boardSelect');
-    
-    boardSelect.addEventListener('change', () => {
-        const selected = boardSelect.value;
-        if (selected && selected !== '__uploaded__' && !selected.includes('Error') && !selected.includes('Loading')) {
-            // Hide uploaded file indicator
-            const uploadedEl = document.getElementById('uploadedFileName');
-            if (uploadedEl) uploadedEl.style.display = 'none';
-            
-            loadConfigFromRepo(selected);
-        }
-    });
-});
