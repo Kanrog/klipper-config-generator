@@ -1,837 +1,840 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Klipper Config Generator</title>
-    <style>
-        :root {
-            --primary: #3b82f6;
-            --success: #22c55e;
-            --warning: #f59e0b;
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text-main: #e2e8f0;
-            --text-muted: #94a3b8;
-            --terminal: #020617;
-            --border: #334155;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        .notice {
-            background: linear-gradient(135deg, #422006, #713f12);
-            border: 1px solid #a16207;
-            border-radius: 8px;
-            padding: 12px 20px;
-            margin-bottom: 20px;
-            max-width: 1200px;
-            width: 100%;
-            box-sizing: border-box;
-            font-size: 0.9rem;
-            color: #fef3c7;
-        }
-        
-        .notice a {
-            color: #60a5fa;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        
-        .notice a:hover {
-            text-decoration: underline;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            display: grid;
-            grid-template-columns: 400px 1fr;
-            gap: 25px;
-        }
-
-        .panel {
-            background: var(--card);
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            border: 1px solid var(--border);
-        }
-
-        h2 { 
-            margin-top: 0; 
-            font-size: 1.25rem; 
-            border-bottom: 2px solid var(--border); 
-            padding-bottom: 10px; 
-            margin-bottom: 20px;
-            color: var(--text-main);
-        }
-
-        .group { margin-bottom: 18px; }
-        
-        label { 
-            display: block; 
-            font-size: 0.8rem; 
-            font-weight: 700; 
-            text-transform: uppercase; 
-            color: var(--text-muted); 
-            margin-bottom: 6px; 
-        }
-
-        select, input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.95rem;
-            box-sizing: border-box;
-            background: var(--terminal);
-            color: var(--text-main);
-        }
-        
-        input[type="number"]::placeholder,
-        input[type="text"]::placeholder {
-            color: var(--text-muted);
-            opacity: 0.6;
-            font-style: italic;
-        }
-        
-        select:focus, input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        }
-
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: var(--terminal);
-            padding: 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 1px solid var(--border);
-        }
-        .checkbox-group input { width: auto; }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            border-radius: 6px;
-            border: none;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: transform 0.1s, opacity 0.2s;
-            margin-bottom: 10px;
-        }
-
-        .btn-generate { background: var(--primary); color: white; margin-top: 10px; }
-        .btn-download { background: var(--success); color: white; }
-        button:hover { opacity: 0.85; }
-        button:active { transform: scale(0.98); }
-
-        textarea {
-            flex-grow: 1;
-            background: var(--terminal);
-            color: #a5f3fc;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            font-size: 0.85rem;
-            line-height: 1.6;
-            resize: none;
-            outline: none;
-        }
-        
-        textarea:focus {
-            border-color: var(--primary);
-        }
-        
-        /* Output panel header */
-        .output-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 10px;
-        }
-        
-        .output-header h2 {
-            margin: 0;
-            border: none;
-            padding: 0;
-        }
-        
-        .edit-hint {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-style: italic;
-        }
-
-        /* Board selector with search */
-        .board-selector {
-            position: relative;
-        }
-        
-        .board-search {
-            margin-bottom: 8px;
-        }
-        
-        .board-search input {
-            padding-left: 32px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: 8px center;
-            background-size: 18px;
-        }
-        
-        /* File upload styling */
-        .upload-section {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed var(--border);
-        }
-        
-        .upload-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px;
-            background: var(--terminal);
-            border: 2px dashed var(--border);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-        
-        .upload-label:hover {
-            border-color: var(--primary);
-            background: #1e3a5f;
-            color: var(--primary);
-        }
-        
-        .upload-label input[type="file"] {
-            display: none;
-        }
-        
-        .upload-label svg {
-            width: 20px;
-            height: 20px;
-        }
-        
-        #uploadedFileName {
-            display: none;
-            margin-top: 8px;
-            padding: 8px 12px;
-            background: #14532d;
-            border: 1px solid #22c55e;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            color: #86efac;
-        }
-
-        /* Sections container styling */
-        .sections-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-        
-        .sections-header label {
-            margin-bottom: 0;
-        }
-        
-        .sections-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        #sectionCount {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: normal;
-        }
-        
-        .sections-toggle-buttons {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .sections-toggle-buttons button {
-            width: auto;
-            padding: 4px 8px;
-            font-size: 0.7rem;
-            margin: 0;
-            background: var(--border);
-            color: var(--text-main);
-        }
-        
-        .sections-toggle-buttons button:hover {
-            background: #475569;
-        }
-
-        #sections-container {
-            max-height: 350px;
-            overflow-y: auto;
-            background: var(--terminal);
-            padding: 12px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-        }
-        
-        #sections-container::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        #sections-container::-webkit-scrollbar-track {
-            background: var(--card);
-            border-radius: 4px;
-        }
-        
-        #sections-container::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        #sections-container::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
-
-        /* Section category headers */
-        .section-category-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin: 12px 0 6px 0;
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 4px;
-        }
-        
-        .section-category-header:first-child {
-            margin-top: 0;
-        }
-        
-        .category-toggle {
-            cursor: pointer;
-            opacity: 0.6;
-            font-size: 1rem;
-            user-select: none;
-        }
-        
-        .category-toggle:hover {
-            opacity: 1;
-        }
-        
-        /* Section items */
-        .section-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 4px 0;
-        }
-        
-        .section-item input[type="checkbox"] {
-            width: auto;
-            cursor: pointer;
-            margin: 0;
-        }
-        
-        .section-item label {
-            font-size: 0.85rem;
-            cursor: pointer;
-            margin: 0;
-            text-transform: none;
-            font-weight: normal;
-            color: var(--text-main);
-        }
-        
-        .section-item label.originally-commented {
-            color: #64748b;
-            font-style: italic;
-        }
-        
-        /* Legend for commented sections */
-        .sections-legend {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .legend-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #64748b;
-        }
-        
-        /* Option rows for homing/endstops */
-        .option-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 10px;
-            background: var(--terminal);
-            border-radius: 6px;
-            margin-bottom: 6px;
-            border: 1px solid var(--border);
-        }
-        
-        .option-label {
-            font-size: 0.85rem;
-            color: var(--text-main);
-        }
-        
-        .option-select {
-            width: auto;
-            min-width: 140px;
-            padding: 6px 10px;
-            font-size: 0.85rem;
-        }
-        
-        .option-input {
-            width: 80px;
-            padding: 6px 10px;
-            font-size: 0.85rem;
-            text-align: right;
-        }
-        
-        .option-subgroup {
-            margin-left: 15px;
-            padding-left: 10px;
-            border-left: 2px solid var(--border);
-        }
-        
-        .option-hint {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin: 4px 0 0 0;
-            font-style: italic;
-        }
-        
-        /* Driver Warning */
-        .driver-warning {
-            background: linear-gradient(135deg, #7f1d1d, #991b1b);
-            border: 2px solid #dc2626;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 18px 0;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-        }
-        
-        .driver-warning .warning-icon {
-            font-size: 1.5rem;
-            flex-shrink: 0;
-            line-height: 1;
-        }
-        
-        .driver-warning .warning-content {
-            flex: 1;
-        }
-        
-        .driver-warning .warning-content strong {
-            display: block;
-            font-size: 0.95rem;
-            margin-bottom: 6px;
-            color: #fecaca;
-        }
-        
-        .driver-warning .warning-content p {
-            margin: 4px 0;
-            font-size: 0.85rem;
-            line-height: 1.4;
-            color: #fef2f2;
-        }
-        
-        /* Sensorless Warning */
-        .sensorless-warning {
-            background: linear-gradient(135deg, #7f1d1d, #991b1b);
-            border: 2px solid #dc2626;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 12px 0;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-        }
-        
-        .sensorless-warning .warning-icon {
-            font-size: 1.5rem;
-            flex-shrink: 0;
-            line-height: 1;
-        }
-        
-        .sensorless-warning .warning-content {
-            flex: 1;
-        }
-        
-        .sensorless-warning .warning-content strong {
-            display: block;
-            font-size: 0.95rem;
-            margin-bottom: 6px;
-            color: #fecaca;
-        }
-        
-        .sensorless-warning .warning-content p {
-            margin: 4px 0;
-            font-size: 0.85rem;
-            line-height: 1.4;
-            color: #fef2f2;
-        }
-        
-        .sensorless-warning .warning-content code {
-            background: rgba(0,0,0,0.3);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8rem;
-        }
-        
-        /* Driver Count Display */
-        .driver-count-display {
-            margin: 10px 0;
-            padding: 0;
-        }
-        
-        .driver-count {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--terminal);
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            font-size: 0.8rem;
-            flex-wrap: wrap;
-        }
-        
-        .driver-count.warning {
-            border-color: #dc2626;
-            background: linear-gradient(135deg, #7f1d1d22, #991b1b22);
-        }
-        
-        .driver-count .count-label {
-            color: var(--text-muted);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-        }
-        
-        .driver-count .count-value {
-            color: var(--text-main);
-            font-weight: 700;
-            font-size: 0.85rem;
-        }
-        
-        .driver-count .count-ok {
-            color: #22c55e;
-        }
-        
-        .driver-count .count-warning {
-            color: #ef4444;
-        }
-        
-        .driver-count .count-separator {
-            color: var(--border);
-            font-weight: 300;
-        }
-        
-        /* Site Header */
-        .site-header {
-            text-align: center;
-            margin-bottom: 25px;
-            max-width: 1200px;
-            width: 100%;
-        }
-        
-        .site-header h1 {
-            font-size: 2.5rem;
-            margin: 0 0 8px 0;
-            color: var(--text-main);
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-        
-        .site-header h1 span {
-            color: var(--primary);
-        }
-        
-        .site-header .tagline {
-            font-size: 1rem;
-            color: var(--text-muted);
-            margin: 0 0 12px 0;
-        }
-        
-        .site-header .github-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.85rem;
-            transition: color 0.2s;
-        }
-        
-        .site-header .github-link:hover {
-            color: var(--primary);
-        }
-        
-        .site-header .github-link svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        @media (max-width: 900px) {
-            .container { grid-template-columns: 1fr; }
-            .site-header h1 { font-size: 1.8rem; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Klipper Config Generator</title>
+  <style>
+    :root {
+      --bg-primary: #1a1a2e;
+      --bg-secondary: #16213e;
+      --bg-tertiary: #0f3460;
+      --text-primary: #eee;
+      --text-secondary: #aaa;
+      --accent: #e94560;
+      --accent-hover: #ff6b6b;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --border: #333;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      text-align: center;
+      color: var(--accent);
+      margin-bottom: 30px;
+      font-size: 2rem;
+    }
+    
+    .main-layout {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+    }
+    
+    @media (max-width: 900px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .panel {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+    
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin: 0;
+    }
+    
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .panel-actions button {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .panel-actions button:hover {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+    
+    select, input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+    }
+    
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .dimension-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    
+    .dimension-grid.delta {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .hint {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      font-style: italic;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+    
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      color: var(--text-primary);
+    }
+    
+    /* Sections container */
+    .sections-scroll {
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    
+    .sections-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .sections-scroll::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+      border-radius: 4px;
+    }
+    
+    .sections-scroll::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    
+    .sections-scroll::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+    
+    .section-category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      margin: 10px 0 5px 0;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--accent);
+    }
+    
+    .category-toggle {
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    
+    .category-toggle:hover {
+      opacity: 1;
+    }
+    
+    .section-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    
+    .section-item:hover {
+      background: var(--bg-primary);
+    }
+    
+    .section-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+    
+    .section-item label {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+    
+    .section-item label.originally-commented {
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+    
+    /* Include files section */
+    .includes-section {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .includes-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+      padding-right: 5px;
+    }
+    
+    .includes-empty {
+      padding: 15px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      background: var(--bg-primary);
+      border-radius: 6px;
+    }
+    
+    .include-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+    }
+    
+    .include-item:hover {
+      border-color: var(--accent);
+    }
+    
+    .include-item.disabled {
+      opacity: 0.5;
+    }
+    
+    .include-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    
+    .include-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .include-name {
+      display: block;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+      color: var(--success);
+      cursor: pointer;
+      margin: 0 !important;
+    }
+    
+    .include-desc {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    
+    .include-remove {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0 5px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    
+    .include-remove:hover {
+      color: var(--accent);
+    }
+    
+    .include-add-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .include-add-row {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .include-add-row select {
+      flex: 1;
+    }
+    
+    .include-add-row input {
+      flex: 1;
+    }
+    
+    .include-add-row button {
+      padding: 8px 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    
+    .include-add-row button:hover {
+      background: var(--accent-hover);
+    }
+    
+    .include-count {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    
+    /* Buttons */
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    /* Output */
+    .output-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    #output {
+      flex: 1;
+      min-height: 500px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.85rem;
+      padding: 15px;
+      resize: vertical;
+    }
+    
+    /* Driver warnings */
+    .driver-count-display {
+      margin: 10px 0;
+    }
+    
+    .driver-count {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+    
+    .driver-count.warning {
+      border: 1px solid var(--warning);
+    }
+    
+    .count-label {
+      color: var(--text-secondary);
+    }
+    
+    .count-value {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    
+    .count-separator {
+      color: var(--border);
+    }
+    
+    .count-ok {
+      color: var(--success);
+    }
+    
+    .count-warning {
+      color: var(--accent);
+    }
+    
+    .driver-warning, .sensorless-warning {
+      display: flex;
+      gap: 12px;
+      padding: 15px;
+      background: rgba(233, 69, 96, 0.1);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      margin: 15px 0;
+    }
+    
+    .warning-icon {
+      font-size: 1.5rem;
+    }
+    
+    .warning-content {
+      flex: 1;
+    }
+    
+    .warning-content strong {
+      color: var(--accent);
+    }
+    
+    .warning-content p {
+      margin: 8px 0 0 0;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    
+    .warning-content code {
+      background: var(--bg-primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', monospace;
+    }
+    
+    /* File upload */
+    .file-upload {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .file-upload-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      background: var(--bg-primary);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .file-upload-label:hover {
+      border-color: var(--accent);
+      background: var(--bg-tertiary);
+    }
+    
+    .file-upload input[type="file"] {
+      display: none;
+    }
+    
+    #uploadedFileName {
+      display: none;
+      margin-top: 10px;
+      padding: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--success);
+    }
+    
+    /* Sub-options */
+    .sub-options {
+      margin-top: 10px;
+      padding: 15px;
+      background: var(--bg-primary);
+      border-radius: 8px;
+    }
+    
+    .sub-options .form-group {
+      margin-bottom: 10px;
+    }
+    
+    .sub-options .form-group:last-child {
+      margin-bottom: 0;
+    }
+    
+    /* Probe offsets grid */
+    .offset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    /* Section count badge */
+    .section-count {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: var(--bg-primary);
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+    
+    /* Collapsible sections */
+    .collapsible-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      padding: 10px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+    
+    .collapsible-header:hover {
+      background: var(--accent);
+    }
+    
+    .collapsible-content {
+      padding: 0 10px;
+    }
+    
+    .collapsible-content.collapsed {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-
-<div class="site-header">
-    <h1>Klipper <span>Config Generator</span></h1>
-    <p class="tagline">Build your printer.cfg with ease — select options, toggle sections, download and go.</p>
-    <a href="https://github.com/Kanrog/klipper-config-generator" target="_blank" class="github-link">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-        </svg>
-        View on GitHub
-    </a>
-</div>
-
-<div class="notice">
-    ⚠️ <strong>Work in Progress</strong> — This tool is under active development and not meant for public use yet. 
-    Want to contribute? <a href="https://kanrog.github.io/" target="_blank">Get in touch!</a>
-</div>
-
-<div class="container">
-    <div class="panel">
-        <h2>Printer Settings</h2>
-        
-        <div class="group">
-            <label>Kinematics</label>
-            <select id="kinematicsSelect" onchange="updateKinematicsOptions()">
-                <option value="cartesian">Cartesian (Bed Slinger)</option>
-                <option value="cartesian_xy">Cartesian (Flying Gantry)</option>
-                <option value="corexy">CoreXY</option>
-                <option value="corexz">CoreXZ</option>
-                <option value="delta">Delta</option>
-                <option value="deltesian">Deltesian</option>
-                <option value="polar">Polar</option>
-                <option value="winch">Cable Winch</option>
+  <div class="container">
+    <h1>🔧 Klipper Config Generator</h1>
+    
+    <div class="main-layout">
+      <!-- Left Panel - Configuration -->
+      <div class="config-panel">
+        <!-- Board Selection -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">📋 Board Selection</h2>
+          </div>
+          
+          <div class="form-group">
+            <label for="boardSearch">Search Boards</label>
+            <input type="text" id="boardSearch" placeholder="Loading..." disabled oninput="filterBoards()">
+          </div>
+          
+          <div class="form-group">
+            <label for="boardSelect">Select Board Config</label>
+            <select id="boardSelect" onchange="loadConfigFromRepo(this.value)">
+              <option>Loading...</option>
             </select>
-            <p class="option-hint" id="kinematicsHint">Y axis moves the bed, X axis moves the toolhead</p>
+          </div>
+          
+          <div class="file-upload">
+            <label class="file-upload-label">
+              <span>📁 Or upload your own config</span>
+              <input type="file" accept=".cfg" onchange="handleFileUpload(event)">
+            </label>
+            <div id="uploadedFileName"></div>
+          </div>
         </div>
         
-        <div class="group">
-            <label>Motherboard / Base Config</label>
-            <div class="board-selector">
-                <div class="board-search">
-                    <input type="text" id="boardSearch" placeholder="Loading..." disabled oninput="filterBoards()">
-                </div>
-                <select id="boardSelect">
-                    <option>Loading from GitHub...</option>
-                </select>
-            </div>
-            
-            <div class="upload-section">
-                <label class="upload-label">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    <span>Or upload your own .cfg file</span>
-                    <input type="file" id="fileUpload" accept=".cfg" onchange="handleFileUpload(event)">
-                </label>
-                <div id="uploadedFileName"></div>
-            </div>
-        </div>
-
-        <div class="group" id="bedDimensionsGroup">
+        <!-- Printer Settings -->
+        <div class="panel" style="margin-top: 15px;">
+          <div class="panel-header">
+            <h2 class="panel-title">⚙️ Printer Settings</h2>
+          </div>
+          
+          <div class="form-group">
+            <label for="kinematicsSelect">Kinematics</label>
+            <select id="kinematicsSelect" onchange="updateKinematicsOptions()">
+              <option value="cartesian">Cartesian (Bed Slinger)</option>
+              <option value="cartesian_xy">Cartesian (Flying Gantry)</option>
+              <option value="corexy">CoreXY</option>
+              <option value="corexz">CoreXZ</option>
+              <option value="delta">Delta</option>
+              <option value="deltesian">Deltesian</option>
+              <option value="polar">Polar</option>
+              <option value="winch">Cable Winch</option>
+            </select>
+            <div class="hint" id="kinematicsHint">Y axis moves the bed, X axis moves the toolhead</div>
+          </div>
+          
+          <div class="form-group">
             <label id="bedDimensionsLabel">Bed Dimensions (X / Y / Z mm)</label>
-            <div class="grid-3" id="cartesianDimensions">
-                <input type="number" id="bedX" value="235" placeholder="X">
-                <input type="number" id="bedY" value="235" placeholder="Y">
-                <input type="number" id="bedZ" value="250" placeholder="Z">
+            <div class="dimension-grid" id="cartesianDimensions">
+              <input type="number" id="bedX" placeholder="235" value="235">
+              <input type="number" id="bedY" placeholder="235" value="235">
+              <input type="number" id="bedZ" placeholder="250" value="250">
             </div>
-            <div id="deltaDimensions" style="display: none;">
-                <div class="grid-3">
-                    <input type="number" id="deltaRadius" value="140" placeholder="Print Radius">
-                    <input type="number" id="deltaHeight" value="300" placeholder="Height">
-                    <input type="number" id="deltaArmLength" value="270" placeholder="Arm Length">
-                </div>
-                <p class="option-hint">Arm length = distance between ball joints on diagonal rods</p>
+            <div class="dimension-grid delta" id="deltaDimensions" style="display: none;">
+              <input type="number" id="deltaRadius" placeholder="140" value="140">
+              <input type="number" id="deltaHeight" placeholder="300" value="300">
+              <input type="number" id="deltaArmLength" placeholder="270" value="270" style="display:none;">
             </div>
+          </div>
+          
+          <div class="form-group" id="zMotorsGroup">
+            <label for="zMotorCount">Z Motor Count</label>
+            <select id="zMotorCount" onchange="updateZMotorOptions()">
+              <option value="1">Single Z</option>
+              <option value="2">Dual Z</option>
+              <option value="3">Triple Z</option>
+              <option value="4">Quad Z</option>
+            </select>
+          </div>
+          
+          <div id="zTiltOptions" style="display: none;" class="sub-options">
+            <div class="form-group">
+              <label for="zLevelingType">Z Leveling Method</label>
+              <select id="zLevelingType">
+                <option value="none">None (Manual)</option>
+                <option value="z_tilt">Z Tilt Adjust</option>
+              </select>
+              <div class="hint" id="zTiltHint">Levels the gantry using multiple Z motors</div>
+            </div>
+          </div>
+          
+          <div id="quadGantryOptions" style="display: none;" class="sub-options">
+            <div class="form-group">
+              <label for="quadLevelingType">Quad Z Leveling</label>
+              <select id="quadLevelingType">
+                <option value="none">None (Manual)</option>
+                <option value="z_tilt">Z Tilt Adjust</option>
+                <option value="quad_gantry_level">Quad Gantry Level</option>
+              </select>
+              <div class="hint">QGL is typically used for CoreXY printers like Voron</div>
+            </div>
+          </div>
         </div>
         
-        <div class="group" id="zMotorsGroup">
-            <label>Z Motors Configuration</label>
-            <div class="option-row">
-                <span class="option-label">Number of Z Motors</span>
-                <select id="zMotorCount" class="option-select" onchange="updateZMotorOptions()">
-                    <option value="1">1 (Single Z)</option>
-                    <option value="2">2 (Dual Z)</option>
-                    <option value="3">3 (Triple Z)</option>
-                    <option value="4">4 (Quad Z / Gantry)</option>
+        <!-- Endstops -->
+        <div class="panel" style="margin-top: 15px;">
+          <div class="panel-header">
+            <h2 class="panel-title">🎯 Endstops</h2>
+          </div>
+          
+          <div id="xyEndstopOptions">
+            <div class="form-group">
+              <label for="endstopX">X Endstop Position</label>
+              <select id="endstopX">
+                <option value="min">Min (0)</option>
+                <option value="max">Max</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="endstopY">Y Endstop Position</label>
+              <select id="endstopY">
+                <option value="min">Min (0)</option>
+                <option value="max">Max</option>
+              </select>
+            </div>
+            
+            <div class="checkbox-group">
+              <input type="checkbox" id="sensorlessXY" onchange="updateSensorlessWarning()">
+              <label for="sensorlessXY">Enable Sensorless Homing (X/Y)</label>
+            </div>
+          </div>
+          
+          <div class="form-group" style="margin-top: 15px;">
+            <label for="zEndstopType">Z Endstop Type</label>
+            <select id="zEndstopType" onchange="updateZEndstopOptions()">
+              <option value="switch_min">Switch (Bottom)</option>
+              <option value="switch_max">Switch (Top)</option>
+              <option value="probe">Probe (BLTouch/Inductive)</option>
+            </select>
+          </div>
+          
+          <div id="probeOffsets" class="sub-options" style="display: none;">
+            <label>Probe Offsets from Nozzle (mm)</label>
+            <div class="offset-grid">
+              <div>
+                <label style="font-size: 0.8rem;">X Offset</label>
+                <input type="number" id="probeOffsetX" placeholder="-40" value="-40">
+              </div>
+              <div>
+                <label style="font-size: 0.8rem;">Y Offset</label>
+                <input type="number" id="probeOffsetY" placeholder="-10" value="-10">
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Config Sections -->
+        <div class="panel" style="margin-top: 15px;">
+          <div class="panel-header">
+            <h2 class="panel-title">📦 Config Sections</h2>
+            <div class="panel-actions">
+              <span class="section-count" id="sectionCount">0/0</span>
+              <button onclick="toggleAllSections(true)">All</button>
+              <button onclick="toggleAllSections(false)">None</button>
+            </div>
+          </div>
+          
+          <div class="sections-scroll" id="sections-container">
+            <div style="color: var(--text-secondary); text-align: center; padding: 20px;">
+              Select a board to see available sections
+            </div>
+          </div>
+          
+          <!-- Include Files Section -->
+          <div class="includes-section">
+            <div class="panel-header" style="margin-bottom: 10px;">
+              <h3 class="panel-title" style="font-size: 1rem;">📎 Include Files</h3>
+              <div class="panel-actions">
+                <span class="include-count" id="includeCount">No includes</span>
+                <button onclick="toggleAllIncludes(true)">All</button>
+                <button onclick="toggleAllIncludes(false)">None</button>
+              </div>
+            </div>
+            
+            <div class="includes-list" id="includes-list">
+              <div class="includes-empty">No include files added.</div>
+            </div>
+            
+            <div class="include-add-controls">
+              <div class="include-add-row">
+                <select id="includePresetSelect" onchange="handleIncludePresetSelect(this)">
+                  <option value="">Add common include...</option>
+                  <option value="mainsail.cfg">mainsail.cfg</option>
+                  <option value="fluidd.cfg">fluidd.cfg</option>
+                  <option value="macros.cfg">macros.cfg</option>
+                  <option value="timelapse.cfg">timelapse.cfg</option>
+                  <option value="KAMP_Settings.cfg">KAMP_Settings.cfg</option>
+                  <option value="klipperscreen.cfg">klipperscreen.cfg</option>
+                  <option value="crowsnest.conf">crowsnest.conf</option>
+                  <option value="adxl.cfg">adxl.cfg</option>
+                  <option value="ebb36.cfg">ebb36.cfg</option>
+                  <option value="ebb42.cfg">ebb42.cfg</option>
+                  <option value="sht36.cfg">sht36.cfg</option>
+                  <option value="stealthburner_leds.cfg">stealthburner_leds.cfg</option>
                 </select>
+              </div>
+              <div class="include-add-row">
+                <input type="text" id="customIncludeInput" placeholder="Custom filename.cfg" onkeypress="handleCustomIncludeKeypress(event)">
+                <button onclick="handleCustomIncludeAdd()">Add</button>
+              </div>
             </div>
-            
-            <div id="zTiltOptions" style="display: none;">
-                <div class="option-row">
-                    <span class="option-label">Auto Leveling</span>
-                    <select id="zLevelingType" class="option-select">
-                        <option value="none">None (manual)</option>
-                        <option value="z_tilt" selected>Z Tilt Adjust</option>
-                    </select>
-                </div>
-                <p class="option-hint" id="zTiltHint">Automatically levels the gantry/bed using multiple Z motors</p>
-            </div>
-            
-            <div id="quadGantryOptions" style="display: none;">
-                <div class="option-row">
-                    <span class="option-label">Auto Leveling</span>
-                    <select id="quadLevelingType" class="option-select">
-                        <option value="none">None (manual)</option>
-                        <option value="z_tilt">Z Tilt Adjust</option>
-                        <option value="quad_gantry_level" selected>Quad Gantry Level</option>
-                    </select>
-                </div>
-                <p class="option-hint">QGL is typically used for CoreXY with 4 independent Z motors</p>
-            </div>
+          </div>
         </div>
-
-        <div class="group" id="homingEndstopsGroup">
-            <label>Homing & Endstops</label>
-            
-            <!-- Endstop Positions (hidden for delta) -->
-            <div id="xyEndstopOptions">
-                <div class="option-row">
-                    <span class="option-label">X Endstop Position</span>
-                    <select id="endstopX" class="option-select">
-                        <option value="min" selected>Min (0)</option>
-                        <option value="max">Max</option>
-                    </select>
-                </div>
-                
-                <div class="option-row">
-                    <span class="option-label">Y Endstop Position</span>
-                    <select id="endstopY" class="option-select">
-                        <option value="min" selected>Min (0)</option>
-                        <option value="max">Max</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="option-row">
-                <span class="option-label">Z Endstop Type</span>
-                <select id="zEndstopType" class="option-select" onchange="updateZEndstopOptions()">
-                    <option value="switch_min">Switch at Min (bottom)</option>
-                    <option value="switch_max">Switch at Max (top)</option>
-                    <option value="probe">Probe (BLTouch/Inductive/etc)</option>
-                </select>
-            </div>
-            
-            <!-- Probe offset (shown only when probe is selected) -->
-            <div id="probeOffsetGroup" class="option-subgroup" style="display: none;">
-                <div class="option-row">
-                    <span class="option-label">Probe X Offset</span>
-                    <input type="number" id="probeOffsetX" value="-40" class="option-input" placeholder="mm">
-                </div>
-                <div class="option-row">
-                    <span class="option-label">Probe Y Offset</span>
-                    <input type="number" id="probeOffsetY" value="-10" class="option-input" placeholder="mm">
-                </div>
-            </div>
-            
-            <!-- Sensorless Homing -->
-            <div class="checkbox-group" style="margin-top: 10px;">
-                <input type="checkbox" id="sensorlessXY" onchange="updateSensorlessWarning()">
-                <span>Sensorless Homing (X/Y)</span>
-            </div>
-            <p class="option-hint">Uses TMC StallGuard instead of physical endstops. Requires TMC2209/2130/5160 drivers.</p>
+        
+        <!-- Generate Button -->
+        <div class="button-row">
+          <button class="btn btn-primary" onclick="generate()" style="flex: 1;">
+            🚀 Generate Config
+          </button>
         </div>
-
-        <div class="group">
-            <div class="sections-header">
-                <label>Config Sections</label>
-                <div class="sections-controls">
-                    <span id="sectionCount">0/0</span>
-                    <div class="sections-toggle-buttons">
-                        <button type="button" onclick="toggleAllSections(true)">All</button>
-                        <button type="button" onclick="toggleAllSections(false)">None</button>
-                    </div>
-                </div>
-            </div>
-            <div id="sections-container">
-                <div style="color: #64748b; font-size: 0.85rem; padding: 20px; text-align: center;">
-                    Select a motherboard or upload a config file to view sections...
-                </div>
-            </div>
-            <div class="sections-legend">
-                <span class="legend-dot"></span>
-                <span>Gray italic = commented out in original config (disabled by default)</span>
-            </div>
+      </div>
+      
+      <!-- Right Panel - Output -->
+      <div class="panel output-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">📄 Generated Config</h2>
+          <button class="btn btn-secondary" onclick="download()">
+            💾 Download printer.cfg
+          </button>
         </div>
-
-        <button class="btn-generate" onclick="generate()">Generate Config</button>
-        <button class="btn-download" onclick="download()">Download printer.cfg</button>
-
-        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 20px;">
-            💡 <strong>Tip:</strong> Enable sections by checking them, disable by unchecking. 
-            Disabled sections will be commented out in the output. Always verify pins before first move!
-        </p>
+        
+        <textarea id="output" readonly placeholder="Generated config will appear here..."></textarea>
+      </div>
     </div>
-
-    <div class="panel">
-        <div class="output-header">
-            <h2>printer.cfg</h2>
-            <span class="edit-hint">You can edit directly before downloading</span>
-        </div>
-        <textarea id="output" placeholder="Your generated configuration will appear here...
-
-1. Select a motherboard from the dropdown (or upload your own config)
-2. Adjust bed dimensions if needed
-3. Enable/disable sections using the checkboxes
-4. Click 'Generate Config' to preview
-5. Edit if needed, then click 'Download' to save your printer.cfg" spellcheck="false"></textarea>
-    </div>
-</div>
-
-<!-- Only need app.js now - it includes all the section parsing logic -->
-<script src="app.js"></script>
-
+  </div>
+  
+  <script src="app.js"></script>
 </body>
 </html>
