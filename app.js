@@ -108,6 +108,39 @@ function updateKinematicsOptions() {
         document.getElementById('zEndstopType').value = 'switch_max';
         updateZEndstopOptions();
     }
+    
+    // Hide Z motors config for delta (delta uses stepper_a/b/c instead)
+    const zMotorsGroup = document.getElementById('zMotorsGroup');
+    if (kinematics.usesDelta) {
+        zMotorsGroup.style.display = 'none';
+    } else {
+        zMotorsGroup.style.display = 'block';
+    }
+}
+
+/**
+ * Update UI based on Z motor count selection
+ */
+function updateZMotorOptions() {
+    const count = parseInt(document.getElementById('zMotorCount').value);
+    const zTiltOptions = document.getElementById('zTiltOptions');
+    const quadGantryOptions = document.getElementById('quadGantryOptions');
+    
+    // Hide all first
+    zTiltOptions.style.display = 'none';
+    quadGantryOptions.style.display = 'none';
+    
+    if (count === 2 || count === 3) {
+        // Show z_tilt options for dual/triple Z
+        zTiltOptions.style.display = 'block';
+        document.getElementById('zTiltHint').textContent = 
+            count === 2 
+                ? 'Levels the gantry using 2 Z motors (front/back or left/right)'
+                : 'Levels the gantry using 3 Z motors (typically triangle pattern)';
+    } else if (count === 4) {
+        // Show quad gantry options
+        quadGantryOptions.style.display = 'block';
+    }
 }
 
 // 1. Fetch board list from GitHub Repo and populate searchable dropdown
@@ -494,6 +527,11 @@ function generate() {
         deltaRadius: parseInt(document.getElementById('deltaRadius').value) || 140,
         deltaHeight: parseInt(document.getElementById('deltaHeight').value) || 300,
         deltaArmLength: parseInt(document.getElementById('deltaArmLength').value) || 270,
+        // Z Motors
+        zMotorCount: parseInt(document.getElementById('zMotorCount').value) || 1,
+        zLevelingType: document.getElementById('zMotorCount').value === '4' 
+            ? document.getElementById('quadLevelingType').value 
+            : document.getElementById('zLevelingType')?.value || 'none',
         // Endstops
         endstopX: document.getElementById('endstopX').value,
         endstopY: document.getElementById('endstopY').value,
@@ -524,6 +562,9 @@ function generate() {
         cfg += `#   Print Radius: ${settings.deltaRadius}mm, Height: ${settings.deltaHeight}mm\n`;
     } else {
         cfg += `#   Bed: ${settings.bedX}x${settings.bedY}x${settings.bedZ}mm\n`;
+        if (settings.zMotorCount > 1) {
+            cfg += `#   Z Motors: ${settings.zMotorCount} (${settings.zLevelingType === 'none' ? 'manual leveling' : settings.zLevelingType})\n`;
+        }
     }
     if (kinematics.usesXYEndstops) {
         cfg += `#   X Endstop: ${settings.endstopX}, Y Endstop: ${settings.endstopY}\n`;
@@ -618,6 +659,80 @@ function generate() {
             }
         });
     });
+    
+    // Add additional Z stepper sections for multi-Z setups
+    if (!settings.usesDelta && settings.zMotorCount > 1) {
+        cfg += `${separator}`;
+        cfg += `# ADDITIONAL Z MOTORS\n`;
+        cfg += `${separator}\n`;
+        
+        // Find the original stepper_z to copy pin pattern (or use placeholders)
+        const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
+        
+        for (let i = 1; i < settings.zMotorCount; i++) {
+            cfg += `[stepper_z${i}]\n`;
+            cfg += `# Copy pins from your board's available stepper driver\n`;
+            cfg += `step_pin: CHANGE_ME\n`;
+            cfg += `dir_pin: CHANGE_ME\n`;
+            cfg += `enable_pin: !CHANGE_ME\n`;
+            cfg += `microsteps: 16\n`;
+            cfg += `rotation_distance: 8  # Match stepper_z\n`;
+            cfg += `# Note: Do not define endstop_pin for additional Z steppers\n\n`;
+        }
+        
+        // Add z_tilt or quad_gantry_level section
+        if (settings.zLevelingType === 'z_tilt') {
+            cfg += `[z_tilt]\n`;
+            cfg += `# Z motor positions - adjust to your printer!\n`;
+            if (settings.zMotorCount === 2) {
+                cfg += `z_positions:\n`;
+                cfg += `    0, ${Math.round(settings.bedY / 2)}      # Left Z\n`;
+                cfg += `    ${settings.bedX}, ${Math.round(settings.bedY / 2)}  # Right Z\n`;
+                cfg += `points:\n`;
+                cfg += `    30, ${Math.round(settings.bedY / 2)}     # Probe point left\n`;
+                cfg += `    ${settings.bedX - 30}, ${Math.round(settings.bedY / 2)}  # Probe point right\n`;
+            } else if (settings.zMotorCount === 3) {
+                cfg += `z_positions:\n`;
+                cfg += `    0, 0                    # Front left\n`;
+                cfg += `    ${Math.round(settings.bedX / 2)}, ${settings.bedY}  # Rear center\n`;
+                cfg += `    ${settings.bedX}, 0     # Front right\n`;
+                cfg += `points:\n`;
+                cfg += `    30, 30\n`;
+                cfg += `    ${Math.round(settings.bedX / 2)}, ${settings.bedY - 30}\n`;
+                cfg += `    ${settings.bedX - 30}, 30\n`;
+            } else {
+                cfg += `z_positions:\n`;
+                cfg += `    0, 0          # Front left\n`;
+                cfg += `    0, ${settings.bedY}      # Rear left\n`;
+                cfg += `    ${settings.bedX}, ${settings.bedY}  # Rear right\n`;
+                cfg += `    ${settings.bedX}, 0  # Front right\n`;
+                cfg += `points:\n`;
+                cfg += `    30, 30\n`;
+                cfg += `    30, ${settings.bedY - 30}\n`;
+                cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}\n`;
+                cfg += `    ${settings.bedX - 30}, 30\n`;
+            }
+            cfg += `speed: 150\n`;
+            cfg += `horizontal_move_z: 5\n`;
+            cfg += `retries: 5\n`;
+            cfg += `retry_tolerance: 0.0075\n\n`;
+        } else if (settings.zLevelingType === 'quad_gantry_level') {
+            cfg += `[quad_gantry_level]\n`;
+            cfg += `# Gantry corners - adjust to your printer!\n`;
+            cfg += `gantry_corners:\n`;
+            cfg += `    -60, -10\n`;
+            cfg += `    ${settings.bedX + 60}, ${settings.bedY + 60}\n`;
+            cfg += `points:\n`;
+            cfg += `    30, 30\n`;
+            cfg += `    30, ${settings.bedY - 30}\n`;
+            cfg += `    ${settings.bedX - 30}, ${settings.bedY - 30}\n`;
+            cfg += `    ${settings.bedX - 30}, 30\n`;
+            cfg += `speed: 150\n`;
+            cfg += `horizontal_move_z: 5\n`;
+            cfg += `retries: 5\n`;
+            cfg += `retry_tolerance: 0.0075\n\n`;
+        }
+    }
     
     // Add delta-specific sections if delta kinematics
     if (settings.usesDelta && settings.kinematicsKlipper === 'delta') {

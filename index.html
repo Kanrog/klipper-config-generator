@@ -558,6 +558,42 @@
                 <p class="option-hint">Arm length = distance between ball joints on diagonal rods</p>
             </div>
         </div>
+        
+        <div class="group" id="zMotorsGroup">
+            <label>Z Motors Configuration</label>
+            <div class="option-row">
+                <span class="option-label">Number of Z Motors</span>
+                <select id="zMotorCount" class="option-select" onchange="updateZMotorOptions()">
+                    <option value="1">1 (Single Z)</option>
+                    <option value="2">2 (Dual Z)</option>
+                    <option value="3">3 (Triple Z)</option>
+                    <option value="4">4 (Quad Z / Gantry)</option>
+                </select>
+            </div>
+            
+            <div id="zTiltOptions" style="display: none;">
+                <div class="option-row">
+                    <span class="option-label">Auto Leveling</span>
+                    <select id="zLevelingType" class="option-select">
+                        <option value="none">None (manual)</option>
+                        <option value="z_tilt" selected>Z Tilt Adjust</option>
+                    </select>
+                </div>
+                <p class="option-hint" id="zTiltHint">Automatically levels the gantry/bed using multiple Z motors</p>
+            </div>
+            
+            <div id="quadGantryOptions" style="display: none;">
+                <div class="option-row">
+                    <span class="option-label">Auto Leveling</span>
+                    <select id="quadLevelingType" class="option-select">
+                        <option value="none">None (manual)</option>
+                        <option value="z_tilt">Z Tilt Adjust</option>
+                        <option value="quad_gantry_level" selected>Quad Gantry Level</option>
+                    </select>
+                </div>
+                <p class="option-hint">QGL is typically used for CoreXY with 4 independent Z motors</p>
+            </div>
+        </div>
 
         <div class="group" id="homingEndstopsGroup">
             <label>Homing & Endstops</label>

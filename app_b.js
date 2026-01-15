@@ -294,13 +294,39 @@ function parseConfigSections(configText) {
 
 /**
  * Extract the raw content of a section (including the header)
+ * Cleans up trailing content and removes standalone comment blocks
  */
 function extractSectionContent(lines, startLine, endLine) {
     // Trim trailing empty lines
     while (endLine > startLine && lines[endLine].trim() === '') {
         endLine--;
     }
-    return lines.slice(startLine, endLine + 1).join('\n');
+    
+    let content = lines.slice(startLine, endLine + 1).join('\n');
+    
+    return content.trim();
+}
+
+/**
+ * Clean section content for output - removes original decorative headers
+ * since we add our own group headers
+ */
+function cleanSectionContent(content) {
+    // Remove ########...  / # Title / ######## style blocks (3 line headers)
+    content = content.replace(/\n*#{5,}\s*\n#[^[\n]*\n#{5,}\s*/g, '\n');
+    
+    // Remove standalone ########... lines (40 chars of #)
+    content = content.replace(/\n*#{10,}\s*\n?/g, '\n');
+    
+    // Remove "# See the sample-..." type trailing comments
+    content = content.replace(/\n+#\s*See the sample[^\n]*/gi, '');
+    content = content.replace(/\n+#\s*See docs\/[^\n]*/gi, '');
+    
+    // Clean up multiple blank lines that might result
+    content = content.replace(/\n{3,}/g, '\n\n');
+    
+    // Trim
+    return content.trim();
 }
 
 /**
@@ -565,6 +591,9 @@ function generate() {
         
         groupSections.forEach(({ section, index, isSelected }) => {
             let content = section.content;
+            
+            // Clean up decorative headers from original config
+            content = cleanSectionContent(content);
             
             if (isSelected) {
                 // UNCOMMENT the section if it was originally commented
