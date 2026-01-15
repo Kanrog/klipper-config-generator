@@ -467,7 +467,6 @@ function generate() {
         // Delta dimensions
         deltaRadius: parseInt(document.getElementById('deltaRadius').value) || 140,
         deltaHeight: parseInt(document.getElementById('deltaHeight').value) || 300,
-        deltaArmLength: parseInt(document.getElementById('deltaArmLength').value) || 270,
         // Endstops
         endstopX: document.getElementById('endstopX').value,
         endstopY: document.getElementById('endstopY').value,
@@ -482,12 +481,8 @@ function generate() {
         document.querySelectorAll('#sections-container input[type="checkbox"]:checked')
     ).map(cb => parseInt(cb.value));
     
-    // Section separator
-    const separator = '#=====================================#\n';
-    
     // Build the config header
-    let cfg = `${separator}`;
-    cfg += `# Klipper Config Generator by Kanrog Creations\n`;
+    let cfg = `# Klipper Config Generator\n`;
     cfg += `# Base config: ${fileName}\n`;
     cfg += `# Generated: ${new Date().toLocaleString()}\n`;
     cfg += `# Sections: ${selectedIndices.length} of ${sections.length} enabled\n`;
@@ -506,110 +501,37 @@ function generate() {
     if (settings.sensorlessXY) {
         cfg += `#   Sensorless Homing: Enabled (X/Y)\n`;
     }
-    cfg += `${separator}\n`;
+    cfg += `\n`;
     
-    // Group sections by category for organized output
-    const sectionGroups = {
-        'CORE': [],
-        'STEPPERS': [],
-        'TMC DRIVERS': [],
-        'EXTRUDER': [],
-        'HEATED BED': [],
-        'FANS': [],
-        'TEMPERATURE SENSORS': [],
-        'PROBING': [],
-        'LIGHTING': [],
-        'OTHER': []
-    };
-    
-    // Categorize each section
     sections.forEach((section, index) => {
-        const name = section.name.toLowerCase();
         const isSelected = selectedIndices.includes(index);
+        let content = section.content;
         
-        let group = 'OTHER';
-        if (name === 'mcu' || name.startsWith('mcu ') || name === 'printer' || name === 'board_pins') {
-            group = 'CORE';
-        } else if (name.startsWith('stepper_')) {
-            group = 'STEPPERS';
-        } else if (name.startsWith('tmc2209') || name.startsWith('tmc2130') || name.startsWith('tmc5160') || name.startsWith('tmc2208')) {
-            group = 'TMC DRIVERS';
-        } else if (name.includes('extruder')) {
-            group = 'EXTRUDER';
-        } else if (name === 'heater_bed') {
-            group = 'HEATED BED';
-        } else if (name.includes('fan') || name === 'fan') {
-            group = 'FANS';
-        } else if (name.includes('temperature_sensor') || name.includes('thermistor') || name === 'adc_temperature') {
-            group = 'TEMPERATURE SENSORS';
-        } else if (name.includes('probe') || name === 'bltouch' || name === 'safe_z_home' || name === 'bed_mesh' || name === 'z_tilt' || name === 'quad_gantry_level') {
-            group = 'PROBING';
-        } else if (name.includes('neopixel') || name.includes('led') || name.includes('dotstar')) {
-            group = 'LIGHTING';
-        }
-        
-        sectionGroups[group].push({ section, index, isSelected });
-    });
-    
-    // Output sections by group with separators
-    Object.entries(sectionGroups).forEach(([groupName, groupSections]) => {
-        if (groupSections.length === 0) return;
-        
-        // Check if any section in group is selected
-        const hasSelectedSections = groupSections.some(s => s.isSelected);
-        
-        // Add group header
-        cfg += `${separator}`;
-        cfg += `# ${groupName}\n`;
-        cfg += `${separator}\n`;
-        
-        groupSections.forEach(({ section, index, isSelected }) => {
-            let content = section.content;
-            
-            if (isSelected) {
-                // UNCOMMENT the section if it was originally commented
-                if (section.originallyCommented) {
-                    content = uncommentSection(content);
-                }
-                
-                // Apply modifications based on section type
-                content = applyKinematics(content, section.name, settings);
-                content = applyBedDimensions(content, section.name, settings);
-                content = applyEndstopSettings(content, section.name, settings);
-                content = applySensorlessHoming(content, section.name, settings);
-                content = applyProbeSettings(content, section.name, settings);
-                
-                cfg += content + '\n\n';
-            } else {
-                // COMMENT OUT the section if it was originally enabled
-                if (!section.originallyCommented) {
-                    content = commentSection(content);
-                }
-                cfg += content + '\n\n';
+        if (isSelected) {
+            // UNCOMMENT the section if it was originally commented
+            if (section.originallyCommented) {
+                content = uncommentSection(content);
             }
-        });
+            
+            // Apply modifications based on section type
+            content = applyKinematics(content, section.name, settings);
+            content = applyBedDimensions(content, section.name, settings);
+            content = applyEndstopSettings(content, section.name, settings);
+            content = applySensorlessHoming(content, section.name, settings);
+            content = applyProbeSettings(content, section.name, settings);
+            
+            cfg += content + '\n\n';
+        } else {
+            // COMMENT OUT the section if it was originally enabled
+            if (!section.originallyCommented) {
+                content = commentSection(content);
+            }
+            cfg += content + '\n\n';
+        }
     });
-    
-    // Add delta-specific sections if delta kinematics
-    if (settings.usesDelta && settings.kinematicsKlipper === 'delta') {
-        cfg += `${separator}`;
-        cfg += `# DELTA CALIBRATION\n`;
-        cfg += `${separator}\n`;
-        cfg += `[delta_calibrate]\n`;
-        cfg += `radius: ${settings.deltaRadius - 10}\n`;
-        cfg += `horizontal_move_z: 10\n`;
-        cfg += `# speed: 50\n`;
-        cfg += `# samples: 1\n\n`;
-    }
     
     // Clean up excessive blank lines
     cfg = cfg.replace(/\n{3,}/g, '\n\n');
-    
-    // Add SAVE_CONFIG block at the end
-    cfg += `\n${separator}`;
-    cfg += `#*# <---------------------- SAVE_CONFIG ---------------------->\n`;
-    cfg += `#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.\n`;
-    cfg += `#*#\n`;
     
     document.getElementById('output').value = cfg;
 }
@@ -645,13 +567,13 @@ function applyKinematics(content, sectionName, settings) {
     
     if (name !== 'printer') return content;
     
-    const { kinematicsKlipper, usesDelta, deltaRadius, deltaHeight, deltaArmLength, bedZ } = settings;
+    const { kinematicsKlipper, usesDelta, deltaRadius, deltaHeight, bedZ } = settings;
     
     // Update kinematics type
     content = content.replace(/kinematics:\s*\w+/, `kinematics: ${kinematicsKlipper}`);
     
     // For delta printers, add/update delta-specific settings
-    if (usesDelta && kinematicsKlipper === 'delta') {
+    if (usesDelta) {
         // Update or add delta_radius
         if (content.includes('delta_radius')) {
             content = content.replace(/delta_radius:\s*[\d.]+/, `delta_radius: ${deltaRadius}`);
@@ -659,27 +581,18 @@ function applyKinematics(content, sectionName, settings) {
             content = content.replace(/(kinematics:.*)/, `$1\ndelta_radius: ${deltaRadius}`);
         }
         
-        // Add print_radius if not present
-        if (!content.includes('print_radius')) {
-            content = content.replace(/(delta_radius:.*)/, `$1\nprint_radius: ${deltaRadius}`);
-        } else {
-            content = content.replace(/print_radius:\s*[\d.]+/, `print_radius: ${deltaRadius}`);
-        }
+        // For delta, max_z is the height
+        content = content.replace(/max_z_velocity:\s*[\d.]+/, `max_z_velocity: 50`);
         
-        // Add/update arm_length
-        if (!content.includes('arm_length')) {
-            content = content.replace(/(print_radius:.*)/, `$1\narm_length: ${deltaArmLength}`);
-        } else {
-            content = content.replace(/arm_length:\s*[\d.]+/, `arm_length: ${deltaArmLength}`);
+        // Add print_radius if not present
+        if (!content.includes('print_radius') && kinematicsKlipper === 'delta') {
+            content = content.replace(/(delta_radius:.*)/, `$1\nprint_radius: ${deltaRadius}`);
         }
         
         // Add minimum_z_position for delta
         if (!content.includes('minimum_z_position')) {
-            content = content.replace(/(arm_length:.*)/, `$1\nminimum_z_position: -5`);
+            content = content.replace(/(kinematics:.*)/, `$1\nminimum_z_position: -5`);
         }
-        
-        // For delta, adjust max_z_velocity
-        content = content.replace(/max_z_velocity:\s*[\d.]+/, `max_z_velocity: 50`);
     }
     
     return content;
@@ -742,7 +655,6 @@ function applyBedDimensions(content, sectionName, settings) {
 
 /**
  * Apply endstop settings (position and homing direction)
- * Preserves original pins as comments for reference
  */
 function applyEndstopSettings(content, sectionName, settings) {
     const name = sectionName.toLowerCase();
@@ -777,13 +689,10 @@ function applyEndstopSettings(content, sectionName, settings) {
     // Handle Z stepper endstop
     if (name === 'stepper_z') {
         if (zEndstopType === 'probe') {
-            // Use probe as endstop, keep original pin as comment
-            content = content.replace(
-                /endstop_pin:\s*(\^?[A-Z0-9_]+)/i, 
-                'endstop_pin: probe:z_virtual_endstop  #$1'
-            );
-            // Comment out position_endstop but keep the value
-            content = content.replace(/^(position_endstop:.*)$/m, '#$1');
+            // Use probe as endstop
+            content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: probe:z_virtual_endstop');
+            // Comment out position_endstop
+            content = content.replace(/^(position_endstop:.*)$/m, '#$1  # Disabled - using probe');
             // Add position_min for probing below 0
             if (!content.includes('position_min')) {
                 content = content.replace(/(position_max:.*)/, '$1\nposition_min: -5');
@@ -807,7 +716,6 @@ function applyEndstopSettings(content, sectionName, settings) {
 
 /**
  * Apply sensorless homing configuration
- * Preserves original endstop pin as a comment for reference
  */
 function applySensorlessHoming(content, sectionName, settings) {
     const name = sectionName.toLowerCase();
@@ -817,11 +725,8 @@ function applySensorlessHoming(content, sectionName, settings) {
     
     // Apply to stepper_x
     if (name === 'stepper_x') {
-        // Change endstop pin to use TMC virtual endstop, keep original as comment
-        content = content.replace(
-            /endstop_pin:\s*(\^?[A-Z0-9_]+)/i, 
-            'endstop_pin: tmc2209_stepper_x:virtual_endstop  #$1'
-        );
+        // Change endstop pin to use TMC virtual endstop
+        content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: tmc2209_stepper_x:virtual_endstop');
         // Add homing_retract_dist: 0 for sensorless
         if (!content.includes('homing_retract_dist')) {
             content = content.replace(/(homing_speed:.*)/, '$1\nhoming_retract_dist: 0');
@@ -832,10 +737,7 @@ function applySensorlessHoming(content, sectionName, settings) {
     
     // Apply to stepper_y
     if (name === 'stepper_y') {
-        content = content.replace(
-            /endstop_pin:\s*(\^?[A-Z0-9_]+)/i, 
-            'endstop_pin: tmc2209_stepper_y:virtual_endstop  #$1'
-        );
+        content = content.replace(/endstop_pin:\s*\^?[A-Z0-9_]+/i, 'endstop_pin: tmc2209_stepper_y:virtual_endstop');
         if (!content.includes('homing_retract_dist')) {
             content = content.replace(/(homing_speed:.*)/, '$1\nhoming_retract_dist: 0');
         } else {
