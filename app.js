@@ -1758,6 +1758,7 @@ function applyProbeSettings(content, sectionName, settings) {
 
 /**
  * Show/hide probe offset inputs based on Z endstop type
+ * Also automatically enable probe sections when probe is selected
  */
 function updateZEndstopOptions() {
     const zType = document.getElementById('zEndstopType').value;
@@ -1765,8 +1766,35 @@ function updateZEndstopOptions() {
     
     if (zType === 'probe') {
         probeGroup.style.display = 'block';
+        
+        // Automatically enable probe-related sections
+        const checkboxes = document.querySelectorAll('#sections-container input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            const sectionName = cb.dataset.sectionName.toLowerCase();
+            // Enable probe, bltouch, safe_z_home, and bed_mesh sections
+            if (sectionName === 'probe' || 
+                sectionName === 'bltouch' || 
+                sectionName === 'safe_z_home' ||
+                sectionName === 'bed_mesh') {
+                cb.checked = true;
+            }
+        });
+        updateSectionCount();
     } else {
         probeGroup.style.display = 'none';
+        
+        // Optionally disable probe sections when switching away from probe
+        // (commented out to avoid accidentally disabling sections user may want)
+        /*
+        const checkboxes = document.querySelectorAll('#sections-container input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            const sectionName = cb.dataset.sectionName.toLowerCase();
+            if (sectionName === 'probe' || sectionName === 'bltouch') {
+                cb.checked = false;
+            }
+        });
+        updateSectionCount();
+        */
     }
 }
 
