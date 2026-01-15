@@ -9,6 +9,107 @@ window.currentConfigData = {
     fileName: ''
 };
 
+// Kinematics definitions with descriptions and settings
+const KINEMATICS = {
+    cartesian: {
+        name: 'Cartesian (Bed Slinger)',
+        hint: 'Y axis moves the bed, X axis moves the toolhead',
+        usesXYEndstops: true,
+        usesDelta: false,
+        klipperName: 'cartesian'
+    },
+    cartesian_xy: {
+        name: 'Cartesian (Flying Gantry)',
+        hint: 'Bed is stationary, X/Y axes move the toolhead',
+        usesXYEndstops: true,
+        usesDelta: false,
+        klipperName: 'cartesian'
+    },
+    corexy: {
+        name: 'CoreXY',
+        hint: 'Bed moves on Z only, X/Y are belt-driven together',
+        usesXYEndstops: true,
+        usesDelta: false,
+        klipperName: 'corexy'
+    },
+    corexz: {
+        name: 'CoreXZ',
+        hint: 'Y moves bed, X/Z are belt-driven together',
+        usesXYEndstops: true,
+        usesDelta: false,
+        klipperName: 'corexz'
+    },
+    delta: {
+        name: 'Delta',
+        hint: 'Three towers, uses print radius instead of X/Y dimensions',
+        usesXYEndstops: false,
+        usesDelta: true,
+        klipperName: 'delta'
+    },
+    deltesian: {
+        name: 'Deltesian',
+        hint: 'Hybrid delta/cartesian - two towers for X/Z, linear Y',
+        usesXYEndstops: true,
+        usesDelta: false,
+        klipperName: 'deltesian'
+    },
+    polar: {
+        name: 'Polar',
+        hint: 'Rotating bed with radial arm',
+        usesXYEndstops: false,
+        usesDelta: true,
+        klipperName: 'polar'
+    },
+    winch: {
+        name: 'Cable Winch',
+        hint: 'Experimental - cable-suspended toolhead',
+        usesXYEndstops: false,
+        usesDelta: false,
+        klipperName: 'winch'
+    }
+};
+
+/**
+ * Update UI based on selected kinematics
+ */
+function updateKinematicsOptions() {
+    const kinematicsSelect = document.getElementById('kinematicsSelect');
+    const selected = kinematicsSelect.value;
+    const kinematics = KINEMATICS[selected];
+    
+    // Update hint text
+    document.getElementById('kinematicsHint').textContent = kinematics.hint;
+    
+    // Toggle between cartesian and delta dimension inputs
+    const cartesianDims = document.getElementById('cartesianDimensions');
+    const deltaDims = document.getElementById('deltaDimensions');
+    const dimLabel = document.getElementById('bedDimensionsLabel');
+    
+    if (kinematics.usesDelta) {
+        cartesianDims.style.display = 'none';
+        deltaDims.style.display = 'grid';
+        dimLabel.textContent = 'Print Area (Radius / Height mm)';
+    } else {
+        cartesianDims.style.display = 'grid';
+        deltaDims.style.display = 'none';
+        dimLabel.textContent = 'Bed Dimensions (X / Y / Z mm)';
+    }
+    
+    // Show/hide X/Y endstop options
+    const xyEndstopOptions = document.getElementById('xyEndstopOptions');
+    if (kinematics.usesXYEndstops) {
+        xyEndstopOptions.style.display = 'block';
+    } else {
+        xyEndstopOptions.style.display = 'none';
+    }
+    
+    // For delta, default Z endstop to max (top of towers)
+    if (selected === 'delta') {
+        document.getElementById('zEndstopType').value = 'switch_max';
+        updateZEndstopOptions();
+    }
+}
+
 // 1. Fetch board list from GitHub Repo and populate searchable dropdown
 window.onload = async () => {
     const select = document.getElementById('boardSelect');
@@ -350,11 +451,23 @@ function generate() {
         return;
     }
     
+    // Get kinematics
+    const kinematicsKey = document.getElementById('kinematicsSelect').value;
+    const kinematics = KINEMATICS[kinematicsKey];
+    
     // Get all settings
     const settings = {
+        kinematics: kinematicsKey,
+        kinematicsKlipper: kinematics.klipperName,
+        usesDelta: kinematics.usesDelta,
+        // Bed dimensions (cartesian)
         bedX: parseInt(document.getElementById('bedX').value) || 235,
         bedY: parseInt(document.getElementById('bedY').value) || 235,
         bedZ: parseInt(document.getElementById('bedZ').value) || 250,
+        // Delta dimensions
+        deltaRadius: parseInt(document.getElementById('deltaRadius').value) || 140,
+        deltaHeight: parseInt(document.getElementById('deltaHeight').value) || 300,
+        // Endstops
         endstopX: document.getElementById('endstopX').value,
         endstopY: document.getElementById('endstopY').value,
         zEndstopType: document.getElementById('zEndstopType').value,
@@ -375,8 +488,15 @@ function generate() {
     cfg += `# Sections: ${selectedIndices.length} of ${sections.length} enabled\n`;
     cfg += `#\n`;
     cfg += `# Settings:\n`;
-    cfg += `#   Bed: ${settings.bedX}x${settings.bedY}x${settings.bedZ}mm\n`;
-    cfg += `#   X Endstop: ${settings.endstopX}, Y Endstop: ${settings.endstopY}\n`;
+    cfg += `#   Kinematics: ${kinematics.name}\n`;
+    if (settings.usesDelta) {
+        cfg += `#   Print Radius: ${settings.deltaRadius}mm, Height: ${settings.deltaHeight}mm\n`;
+    } else {
+        cfg += `#   Bed: ${settings.bedX}x${settings.bedY}x${settings.bedZ}mm\n`;
+    }
+    if (kinematics.usesXYEndstops) {
+        cfg += `#   X Endstop: ${settings.endstopX}, Y Endstop: ${settings.endstopY}\n`;
+    }
     cfg += `#   Z Endstop: ${settings.zEndstopType}\n`;
     if (settings.sensorlessXY) {
         cfg += `#   Sensorless Homing: Enabled (X/Y)\n`;
@@ -394,6 +514,7 @@ function generate() {
             }
             
             // Apply modifications based on section type
+            content = applyKinematics(content, section.name, settings);
             content = applyBedDimensions(content, section.name, settings);
             content = applyEndstopSettings(content, section.name, settings);
             content = applySensorlessHoming(content, section.name, settings);
@@ -439,12 +560,69 @@ function commentSection(content) {
 }
 
 /**
+ * Apply kinematics settings to [printer] section
+ */
+function applyKinematics(content, sectionName, settings) {
+    const name = sectionName.toLowerCase();
+    
+    if (name !== 'printer') return content;
+    
+    const { kinematicsKlipper, usesDelta, deltaRadius, deltaHeight, bedZ } = settings;
+    
+    // Update kinematics type
+    content = content.replace(/kinematics:\s*\w+/, `kinematics: ${kinematicsKlipper}`);
+    
+    // For delta printers, add/update delta-specific settings
+    if (usesDelta) {
+        // Update or add delta_radius
+        if (content.includes('delta_radius')) {
+            content = content.replace(/delta_radius:\s*[\d.]+/, `delta_radius: ${deltaRadius}`);
+        } else {
+            content = content.replace(/(kinematics:.*)/, `$1\ndelta_radius: ${deltaRadius}`);
+        }
+        
+        // For delta, max_z is the height
+        content = content.replace(/max_z_velocity:\s*[\d.]+/, `max_z_velocity: 50`);
+        
+        // Add print_radius if not present
+        if (!content.includes('print_radius') && kinematicsKlipper === 'delta') {
+            content = content.replace(/(delta_radius:.*)/, `$1\nprint_radius: ${deltaRadius}`);
+        }
+        
+        // Add minimum_z_position for delta
+        if (!content.includes('minimum_z_position')) {
+            content = content.replace(/(kinematics:.*)/, `$1\nminimum_z_position: -5`);
+        }
+    }
+    
+    return content;
+}
+
+/**
  * Apply bed dimension overrides to stepper sections
  */
 function applyBedDimensions(content, sectionName, settings) {
     const name = sectionName.toLowerCase();
-    const { bedX, bedY, bedZ, endstopX, endstopY } = settings;
+    const { bedX, bedY, bedZ, endstopX, endstopY, usesDelta, deltaRadius, deltaHeight } = settings;
     
+    // For delta printers, handle stepper_a, stepper_b, stepper_c (towers)
+    if (usesDelta) {
+        if (name === 'stepper_a' || name === 'stepper_b' || name === 'stepper_c') {
+            // Delta towers typically home to max
+            content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${deltaHeight}`);
+            content = content.replace(/position_endstop:\s*[\d.]+/, `position_endstop: ${deltaHeight}`);
+            // Ensure homing to max
+            if (!content.includes('homing_positive_dir')) {
+                content = content.replace(/(homing_speed:.*)/, '$1\nhoming_positive_dir: true');
+            }
+        } else if (name === 'stepper_z') {
+            // Some delta configs use stepper_z for the first tower
+            content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${deltaHeight}`);
+        }
+        return content;
+    }
+    
+    // Cartesian/CoreXY handling
     if (name === 'stepper_x') {
         content = content.replace(/position_max:\s*[\d.]+/, `position_max: ${bedX}`);
         // Handle position_endstop based on endstop position

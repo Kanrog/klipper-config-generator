@@ -101,6 +101,7 @@
         }
 
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
         .checkbox-group {
             display: flex;
@@ -409,7 +410,22 @@
 
 <div class="container">
     <div class="panel">
-        <h2>🛠️ Printer Settings</h2>
+        <h2>Printer Settings</h2>
+        
+        <div class="group">
+            <label>Kinematics</label>
+            <select id="kinematicsSelect" onchange="updateKinematicsOptions()">
+                <option value="cartesian">Cartesian (Bed Slinger)</option>
+                <option value="cartesian_xy">Cartesian (Flying Gantry)</option>
+                <option value="corexy">CoreXY</option>
+                <option value="corexz">CoreXZ</option>
+                <option value="delta">Delta</option>
+                <option value="deltesian">Deltesian</option>
+                <option value="polar">Polar</option>
+                <option value="winch">Cable Winch</option>
+            </select>
+            <p class="option-hint" id="kinematicsHint">Y axis moves the bed, X axis moves the toolhead</p>
+        </div>
         
         <div class="group">
             <label>Motherboard / Base Config</label>
@@ -434,33 +450,39 @@
             </div>
         </div>
 
-        <div class="group">
-            <label>Bed Dimensions (X / Y / Z mm)</label>
-            <div class="grid-3">
+        <div class="group" id="bedDimensionsGroup">
+            <label id="bedDimensionsLabel">Bed Dimensions (X / Y / Z mm)</label>
+            <div class="grid-3" id="cartesianDimensions">
                 <input type="number" id="bedX" value="235" placeholder="X">
                 <input type="number" id="bedY" value="235" placeholder="Y">
                 <input type="number" id="bedZ" value="250" placeholder="Z">
             </div>
+            <div class="grid-2" id="deltaDimensions" style="display: none;">
+                <input type="number" id="deltaRadius" value="140" placeholder="Print Radius">
+                <input type="number" id="deltaHeight" value="300" placeholder="Height">
+            </div>
         </div>
 
-        <div class="group">
+        <div class="group" id="homingEndstopsGroup">
             <label>Homing & Endstops</label>
             
-            <!-- Endstop Positions -->
-            <div class="option-row">
-                <span class="option-label">X Endstop Position</span>
-                <select id="endstopX" class="option-select">
-                    <option value="min" selected>Min (0)</option>
-                    <option value="max">Max</option>
-                </select>
-            </div>
-            
-            <div class="option-row">
-                <span class="option-label">Y Endstop Position</span>
-                <select id="endstopY" class="option-select">
-                    <option value="min" selected>Min (0)</option>
-                    <option value="max">Max</option>
-                </select>
+            <!-- Endstop Positions (hidden for delta) -->
+            <div id="xyEndstopOptions">
+                <div class="option-row">
+                    <span class="option-label">X Endstop Position</span>
+                    <select id="endstopX" class="option-select">
+                        <option value="min" selected>Min (0)</option>
+                        <option value="max">Max</option>
+                    </select>
+                </div>
+                
+                <div class="option-row">
+                    <span class="option-label">Y Endstop Position</span>
+                    <select id="endstopY" class="option-select">
+                        <option value="min" selected>Min (0)</option>
+                        <option value="max">Max</option>
+                    </select>
+                </div>
             </div>
             
             <div class="option-row">
