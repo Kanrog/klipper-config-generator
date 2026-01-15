@@ -468,6 +468,55 @@
             color: #fef2f2;
         }
         
+        /* Driver Count Display */
+        .driver-count-display {
+            margin: 10px 0;
+            padding: 0;
+        }
+        
+        .driver-count {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--terminal);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+        
+        .driver-count.warning {
+            border-color: #dc2626;
+            background: linear-gradient(135deg, #7f1d1d22, #991b1b22);
+        }
+        
+        .driver-count .count-label {
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+        }
+        
+        .driver-count .count-value {
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        
+        .driver-count .count-ok {
+            color: #22c55e;
+        }
+        
+        .driver-count .count-warning {
+            color: #ef4444;
+        }
+        
+        .driver-count .count-separator {
+            color: var(--border);
+            font-weight: 300;
+        }
+        
         /* Site Header */
         .site-header {
             text-align: center;

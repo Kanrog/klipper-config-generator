@@ -71,26 +71,91 @@ const KINEMATICS = {
 };
 
 /**
- * Count the number of stepper drivers available in the config
- * Looks for stepper and extruder sections
+ * Count the number of stepper drivers available on the board
+ * Uses multiple detection methods for accuracy
  */
 function countStepperDrivers(configText) {
     if (!configText) return 0;
     
     const lines = configText.split('\n');
-    const stepperSections = new Set();
+    
+    // METHOD 1: Count TMC driver sections (most reliable)
+    // Each [tmc2209 stepper_x] etc. represents a physical driver
+    const tmcSections = new Set();
+    const tmcPattern = /^#*\s*\[(tmc\d+)\s+(stepper_[xyz]\d*|extruder\d*)\]/i;
     
     for (const line of lines) {
-        const trimmed = line.trim();
-        
-        // Match stepper sections: [stepper_x], [stepper_y], [stepper_z], [extruder], etc.
-        const stepperMatch = trimmed.match(/^\[(?:stepper_[xyz]|stepper_[xyz]\d+|extruder\d*)\]/i);
-        if (stepperMatch) {
-            stepperSections.add(stepperMatch[0].toLowerCase());
+        const match = line.trim().match(tmcPattern);
+        if (match) {
+            // Extract the stepper name (e.g., "stepper_x", "extruder", "stepper_z1")
+            const stepperName = match[2].toLowerCase();
+            tmcSections.add(stepperName);
         }
     }
     
-    return stepperSections.size;
+    // If we found TMC sections, that's our most reliable count
+    if (tmcSections.size > 0) {
+        console.log('Found TMC sections:', tmcSections);
+        return tmcSections.size;
+    }
+    
+    // METHOD 2: Try to detect board type from comments
+    const boardPatterns = [
+        // Format: [pattern, driver_count]
+        { pattern: /skr.*mini.*e3/i, drivers: 4 },
+        { pattern: /skr.*1\.3/i, drivers: 5 },
+        { pattern: /skr.*1\.4/i, drivers: 5 },
+        { pattern: /skr.*2/i, drivers: 5 },
+        { pattern: /skr.*pro/i, drivers: 6 },
+        { pattern: /skr.*octopus/i, drivers: 8 },
+        { pattern: /spider/i, drivers: 8 },
+        { pattern: /manta.*m8p/i, drivers: 8 },
+        { pattern: /manta.*m5p/i, drivers: 5 },
+        { pattern: /fysetc.*s6/i, drivers: 6 },
+        { pattern: /fysetc.*spider/i, drivers: 8 },
+        { pattern: /ender.*3/i, drivers: 4 },
+        { pattern: /ender.*5/i, drivers: 5 },
+        { pattern: /ramps/i, drivers: 5 },
+        { pattern: /mega.*2560/i, drivers: 5 },
+        { pattern: /rumba/i, drivers: 6 },
+        { pattern: /duet.*2/i, drivers: 5 },
+        { pattern: /duet.*3/i, drivers: 6 },
+    ];
+    
+    // Check first 50 lines for board identification
+    const headerText = lines.slice(0, 50).join('\n');
+    for (const { pattern, drivers } of boardPatterns) {
+        if (pattern.test(headerText)) {
+            console.log('Detected board pattern:', pattern, 'drivers:', drivers);
+            return drivers;
+        }
+    }
+    
+    // METHOD 3: Count all stepper sections (both active and commented)
+    const allStepperSections = new Set();
+    const stepperPattern = /^#*\s*\[(?:stepper_[xyz]\d*|extruder\d*)\]/i;
+    
+    for (const line of lines) {
+        const match = line.trim().match(stepperPattern);
+        if (match) {
+            // Normalize the section name
+            const normalized = match[0]
+                .replace(/^#*\s*\[/, '')
+                .replace(/\]/, '')
+                .toLowerCase();
+            allStepperSections.add(normalized);
+        }
+    }
+    
+    console.log('Found stepper sections:', allStepperSections);
+    
+    // If we found any sections, return that count
+    if (allStepperSections.size > 0) {
+        return allStepperSections.size;
+    }
+    
+    // Default fallback
+    return 4;
 }
 
 /**
@@ -127,6 +192,35 @@ function calculateRequiredDrivers() {
 function updateDriverWarning() {
     const required = calculateRequiredDrivers();
     const available = window.currentConfigData.driverCount;
+    
+    // Update driver count display
+    let driverCountEl = document.getElementById('driverCountDisplay');
+    if (!driverCountEl && available > 0) {
+        driverCountEl = document.createElement('div');
+        driverCountEl.id = 'driverCountDisplay';
+        driverCountEl.className = 'driver-count-display';
+        
+        const zMotorsGroup = document.getElementById('zMotorsGroup');
+        const label = zMotorsGroup.querySelector('label');
+        label.parentNode.insertBefore(driverCountEl, label.nextSibling);
+    }
+    
+    if (driverCountEl) {
+        const remaining = available - required;
+        const statusClass = remaining >= 0 ? 'ok' : 'warning';
+        driverCountEl.innerHTML = `
+            <div class="driver-count ${statusClass}">
+                <span class="count-label">Board has:</span>
+                <span class="count-value">${available} drivers</span>
+                <span class="count-separator">|</span>
+                <span class="count-label">Required:</span>
+                <span class="count-value">${required} drivers</span>
+                <span class="count-separator">|</span>
+                <span class="count-label">Available:</span>
+                <span class="count-value ${remaining >= 0 ? 'count-ok' : 'count-warning'}">${remaining} drivers</span>
+            </div>
+        `;
+    }
     
     // Create or update warning element
     let warningEl = document.getElementById('driverWarning');
