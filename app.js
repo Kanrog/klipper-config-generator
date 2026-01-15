@@ -84,12 +84,12 @@ function countStepperDrivers(configText) {
     // METHOD 1: Count TMC driver sections (most reliable)
     // Each [tmc2209 stepper_x] etc. represents a physical driver
     const tmcSections = new Set();
-    const tmcPattern = /^#*\s*\[(tmc\d+)\s+(stepper_[xyz]\d*|extruder\d*)\]/i;
+    const tmcPattern = /^#*\s*\[(tmc\d+)\s+(stepper_[xyzabc]\d*|extruder\d*)\]/i;
     
     for (const line of lines) {
         const match = line.trim().match(tmcPattern);
         if (match) {
-            // Extract the stepper name (e.g., "stepper_x", "extruder", "stepper_z1")
+            // Extract the stepper name (e.g., "stepper_x", "extruder", "stepper_a")
             const stepperName = match[2].toLowerCase();
             tmcSections.add(stepperName);
         }
@@ -134,8 +134,9 @@ function countStepperDrivers(configText) {
     }
     
     // METHOD 3: Count all stepper sections (both active and commented)
+    // Includes both cartesian (x,y,z) and delta (a,b,c) steppers
     const allStepperSections = new Set();
-    const stepperPattern = /^#*\s*\[(?:stepper_[xyz]\d*|extruder\d*)\]/i;
+    const stepperPattern = /^#*\s*\[(?:stepper_[xyzabc]\d*|extruder\d*)\]/i;
     
     for (const line of lines) {
         const match = line.trim().match(stepperPattern);
@@ -483,21 +484,7 @@ function processConfig(configText, fileName) {
  * Populate UI fields with default values from the config
  */
 function populateDefaultValues(defaults) {
-    // Set bed dimensions if available
-    if (defaults.bedX) {
-        document.getElementById('bedX').value = defaults.bedX;
-        document.getElementById('bedX').placeholder = `Default: ${defaults.bedX}`;
-    }
-    if (defaults.bedY) {
-        document.getElementById('bedY').value = defaults.bedY;
-        document.getElementById('bedY').placeholder = `Default: ${defaults.bedY}`;
-    }
-    if (defaults.bedZ) {
-        document.getElementById('bedZ').value = defaults.bedZ;
-        document.getElementById('bedZ').placeholder = `Default: ${defaults.bedZ}`;
-    }
-    
-    // Set kinematics if available
+    // Set kinematics if available (do this first as it affects UI)
     if (defaults.kinematics) {
         const kinematicsSelect = document.getElementById('kinematicsSelect');
         // Try to find matching kinematics
@@ -510,7 +497,40 @@ function populateDefaultValues(defaults) {
         }
     }
     
-    // Set probe offsets if available
+    // Check if this is a delta config
+    const isDelta = defaults.kinematics === 'delta';
+    
+    if (isDelta) {
+        // Populate delta-specific fields
+        if (defaults.deltaRadius) {
+            document.getElementById('deltaRadius').value = defaults.deltaRadius;
+            document.getElementById('deltaRadius').placeholder = `Default: ${defaults.deltaRadius}`;
+        }
+        if (defaults.deltaHeight) {
+            document.getElementById('deltaHeight').value = defaults.deltaHeight;
+            document.getElementById('deltaHeight').placeholder = `Default: ${defaults.deltaHeight}`;
+        }
+        if (defaults.deltaArmLength) {
+            document.getElementById('deltaArmLength').value = defaults.deltaArmLength;
+            document.getElementById('deltaArmLength').placeholder = `Default: ${defaults.deltaArmLength}`;
+        }
+    } else {
+        // Populate cartesian bed dimensions
+        if (defaults.bedX) {
+            document.getElementById('bedX').value = defaults.bedX;
+            document.getElementById('bedX').placeholder = `Default: ${defaults.bedX}`;
+        }
+        if (defaults.bedY) {
+            document.getElementById('bedY').value = defaults.bedY;
+            document.getElementById('bedY').placeholder = `Default: ${defaults.bedY}`;
+        }
+        if (defaults.bedZ) {
+            document.getElementById('bedZ').value = defaults.bedZ;
+            document.getElementById('bedZ').placeholder = `Default: ${defaults.bedZ}`;
+        }
+    }
+    
+    // Set probe offsets if available (works for both delta and cartesian)
     if (defaults.probeOffsetX !== undefined) {
         document.getElementById('probeOffsetX').value = defaults.probeOffsetX;
         document.getElementById('probeOffsetX').placeholder = `Default: ${defaults.probeOffsetX}`;
@@ -641,38 +661,70 @@ function extractSectionContent(lines, startLine, endLine) {
 /**
  * Extract default values from the config
  * Returns object with bed dimensions, rotation_distance, etc.
+ * Handles both cartesian (x,y,z) and delta (a,b,c) configurations
  */
 function extractDefaultValues(configText, sections) {
     const defaults = {};
     
-    // Extract bed dimensions from stepper sections
-    const stepperX = sections.find(s => s.name.toLowerCase() === 'stepper_x');
-    const stepperY = sections.find(s => s.name.toLowerCase() === 'stepper_y');
-    const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
-    
-    if (stepperX) {
-        const match = stepperX.content.match(/position_max:\s*([\d.]+)/);
-        if (match) defaults.bedX = parseInt(match[1]);
-    }
-    
-    if (stepperY) {
-        const match = stepperY.content.match(/position_max:\s*([\d.]+)/);
-        if (match) defaults.bedY = parseInt(match[1]);
-    }
-    
-    if (stepperZ) {
-        const match = stepperZ.content.match(/position_max:\s*([\d.]+)/);
-        if (match) defaults.bedZ = parseInt(match[1]);
-    }
-    
-    // Extract kinematics from printer section
+    // Extract kinematics from printer section first to determine stepper layout
     const printer = sections.find(s => s.name.toLowerCase() === 'printer');
     if (printer) {
         const match = printer.content.match(/kinematics:\s*(\w+)/);
         if (match) defaults.kinematics = match[1].toLowerCase();
     }
     
-    // Extract probe offsets if present
+    const isDelta = defaults.kinematics === 'delta';
+    
+    if (isDelta) {
+        // Delta printer - extract delta-specific parameters
+        const stepperA = sections.find(s => s.name.toLowerCase() === 'stepper_a');
+        const stepperB = sections.find(s => s.name.toLowerCase() === 'stepper_b');
+        const stepperC = sections.find(s => s.name.toLowerCase() === 'stepper_c');
+        
+        // Extract arm_length from any tower (they should all be the same)
+        if (stepperA) {
+            const armMatch = stepperA.content.match(/arm_length:\s*([\d.]+)/);
+            if (armMatch) defaults.deltaArmLength = parseFloat(armMatch[1]);
+        }
+        
+        // Extract print radius and height from printer section
+        if (printer) {
+            const radiusMatch = printer.content.match(/print_radius:\s*([\d.]+)/);
+            const heightMatch = printer.content.match(/minimum_z_position:\s*([-\d.]+)/);
+            const maxZMatch = printer.content.match(/maximum_z_velocity:\s*([\d.]+)/);
+            
+            if (radiusMatch) defaults.deltaRadius = parseFloat(radiusMatch[1]);
+            
+            // Delta height can be tricky - look for position_endstop in stepper_a
+            if (stepperA) {
+                const endstopMatch = stepperA.content.match(/position_endstop:\s*([\d.]+)/);
+                if (endstopMatch) defaults.deltaHeight = parseFloat(endstopMatch[1]);
+            }
+        }
+        
+    } else {
+        // Cartesian/CoreXY printer - extract bed dimensions from stepper sections
+        const stepperX = sections.find(s => s.name.toLowerCase() === 'stepper_x');
+        const stepperY = sections.find(s => s.name.toLowerCase() === 'stepper_y');
+        const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
+        
+        if (stepperX) {
+            const match = stepperX.content.match(/position_max:\s*([\d.]+)/);
+            if (match) defaults.bedX = parseInt(match[1]);
+        }
+        
+        if (stepperY) {
+            const match = stepperY.content.match(/position_max:\s*([\d.]+)/);
+            if (match) defaults.bedY = parseInt(match[1]);
+        }
+        
+        if (stepperZ) {
+            const match = stepperZ.content.match(/position_max:\s*([\d.]+)/);
+            if (match) defaults.bedZ = parseInt(match[1]);
+        }
+    }
+    
+    // Extract probe offsets if present (works for both delta and cartesian)
     const probe = sections.find(s => 
         s.name.toLowerCase() === 'probe' || 
         s.name.toLowerCase() === 'bltouch'
@@ -688,25 +740,35 @@ function extractDefaultValues(configText, sections) {
 }
 
 /**
- * Clean section content for output - removes original decorative headers
- * since we add our own group headers
+ * Clean section content for output - only removes truly decorative separators
+ * Preserves all user comments and explanations
  */
 function cleanSectionContent(content) {
-    // Remove ########...  / # Title / ######## style blocks (3 line headers)
-    content = content.replace(/\n*#{5,}\s*\n#[^[\n]*\n#{5,}\s*/g, '\n');
+    // ONLY remove standalone separator lines that are purely decorative
+    // Pattern: lines with 10+ consecutive # or = characters and nothing else meaningful
+    const lines = content.split('\n');
+    const cleaned = [];
     
-    // Remove standalone ########... lines (40 chars of #)
-    content = content.replace(/\n*#{10,}\s*\n?/g, '\n');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Skip lines that are ONLY separators (######### or ========= etc.)
+        // But keep lines that have actual text content
+        const isSeparatorOnly = /^[#=\-_*]{10,}$/.test(line);
+        
+        if (isSeparatorOnly) {
+            continue; // Skip this line
+        }
+        
+        cleaned.push(lines[i]);
+    }
     
-    // Remove "# See the sample-..." type trailing comments
-    content = content.replace(/\n+#\s*See the sample[^\n]*/gi, '');
-    content = content.replace(/\n+#\s*See docs\/[^\n]*/gi, '');
+    let result = cleaned.join('\n');
     
-    // Clean up multiple blank lines that might result
-    content = content.replace(/\n{3,}/g, '\n\n');
+    // Clean up excessive blank lines (3+ in a row)
+    result = result.replace(/\n{4,}/g, '\n\n\n');
     
-    // Trim
-    return content.trim();
+    return result.trim();
 }
 
 /**
@@ -920,94 +982,41 @@ function generate() {
     if (settings.sensorlessXY) {
         cfg += `#   Sensorless Homing: Enabled (X/Y)\n`;
     }
-    cfg += `${separator}\n`;
+    cfg += `${separator}\n\n`;
     
-    // Group sections by category for organized output
-    const sectionGroups = {
-        'CORE': [],
-        'STEPPERS': [],
-        'TMC DRIVERS': [],
-        'EXTRUDER': [],
-        'HEATED BED': [],
-        'FANS': [],
-        'TEMPERATURE SENSORS': [],
-        'PROBING': [],
-        'LIGHTING': [],
-        'OTHER': []
-    };
-    
-    // Categorize each section
+    // Output sections in ORIGINAL ORDER (don't reorganize)
+    // This preserves the user's intended structure and all their comments
     sections.forEach((section, index) => {
-        const name = section.name.toLowerCase();
         const isSelected = selectedIndices.includes(index);
+        let content = section.content;
         
-        let group = 'OTHER';
-        if (name === 'mcu' || name.startsWith('mcu ') || name === 'printer' || name === 'board_pins') {
-            group = 'CORE';
-        } else if (name.startsWith('stepper_')) {
-            group = 'STEPPERS';
-        } else if (name.startsWith('tmc2209') || name.startsWith('tmc2130') || name.startsWith('tmc5160') || name.startsWith('tmc2208')) {
-            group = 'TMC DRIVERS';
-        } else if (name.includes('extruder')) {
-            group = 'EXTRUDER';
-        } else if (name === 'heater_bed') {
-            group = 'HEATED BED';
-        } else if (name.includes('fan') || name === 'fan') {
-            group = 'FANS';
-        } else if (name.includes('temperature_sensor') || name.includes('thermistor') || name === 'adc_temperature') {
-            group = 'TEMPERATURE SENSORS';
-        } else if (name.includes('probe') || name === 'bltouch' || name === 'safe_z_home' || name === 'bed_mesh' || name === 'z_tilt' || name === 'quad_gantry_level') {
-            group = 'PROBING';
-        } else if (name.includes('neopixel') || name.includes('led') || name.includes('dotstar')) {
-            group = 'LIGHTING';
-        }
+        // Clean up ONLY purely decorative separators, keep all comments
+        content = cleanSectionContent(content);
         
-        sectionGroups[group].push({ section, index, isSelected });
-    });
-    
-    // Output sections by group with separators
-    Object.entries(sectionGroups).forEach(([groupName, groupSections]) => {
-        if (groupSections.length === 0) return;
-        
-        // Check if any section in group is selected
-        const hasSelectedSections = groupSections.some(s => s.isSelected);
-        
-        // Add group header
-        cfg += `${separator}`;
-        cfg += `# ${groupName}\n`;
-        cfg += `${separator}\n`;
-        
-        groupSections.forEach(({ section, index, isSelected }) => {
-            let content = section.content;
-            
-            // Clean up decorative headers from original config
-            content = cleanSectionContent(content);
-            
-            if (isSelected) {
-                // UNCOMMENT the section if it was originally commented
-                if (section.originallyCommented) {
-                    content = uncommentSection(content);
-                }
-                
-                // Apply modifications based on section type
-                content = applyKinematics(content, section.name, settings);
-                content = applyBedDimensions(content, section.name, settings);
-                content = applyEndstopSettings(content, section.name, settings);
-                content = applySensorlessHoming(content, section.name, settings);
-                content = applyProbeSettings(content, section.name, settings);
-                
-                // Comment out lines that have saved values in SAVE_CONFIG
-                content = commentOutSavedLines(content, section.name, window.currentConfigData.savedValues);
-                
-                cfg += content + '\n\n';
-            } else {
-                // COMMENT OUT the section if it was originally enabled
-                if (!section.originallyCommented) {
-                    content = commentSection(content);
-                }
-                cfg += content + '\n\n';
+        if (isSelected) {
+            // UNCOMMENT the section if it was originally commented
+            if (section.originallyCommented) {
+                content = uncommentSection(content);
             }
-        });
+            
+            // Apply modifications based on section type
+            content = applyKinematics(content, section.name, settings);
+            content = applyBedDimensions(content, section.name, settings);
+            content = applyEndstopSettings(content, section.name, settings);
+            content = applySensorlessHoming(content, section.name, settings);
+            content = applyProbeSettings(content, section.name, settings);
+            
+            // Comment out lines that have saved values in SAVE_CONFIG
+            content = commentOutSavedLines(content, section.name, window.currentConfigData.savedValues);
+            
+            cfg += content + '\n\n';
+        } else {
+            // COMMENT OUT the section if it was originally enabled
+            if (!section.originallyCommented) {
+                content = commentSection(content);
+            }
+            cfg += content + '\n\n';
+        }
     });
     
     // Add additional Z stepper sections for multi-Z setups
