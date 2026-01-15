@@ -723,10 +723,12 @@ function extractDefaultValues(configText, sections) {
     const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
     
     if (stepperX) {
-        // Check if there's a physical endstop pin (not virtual_endstop)
-        const endstopMatch = stepperX.content.match(/(?:^|#\s*)endstop_pin:\s*([^\n]+)/m);
+        // Check if there's a physical endstop pin (not virtual_endstop or probe)
+        // Look for endstop_pin: followed by anything that's not virtual_endstop or probe:
+        const endstopMatch = stepperX.content.match(/(?:^|#\s*)endstop_pin:\s*([^#\n]+)/m);
         if (endstopMatch) {
             const pin = endstopMatch[1].trim();
+            // It's a physical pin if it doesn't contain these keywords
             if (!pin.includes('virtual_endstop') && !pin.includes('probe:')) {
                 defaults.hasPhysicalEndstopX = true;
             }
@@ -734,7 +736,7 @@ function extractDefaultValues(configText, sections) {
     }
     
     if (stepperY) {
-        const endstopMatch = stepperY.content.match(/(?:^|#\s*)endstop_pin:\s*([^\n]+)/m);
+        const endstopMatch = stepperY.content.match(/(?:^|#\s*)endstop_pin:\s*([^#\n]+)/m);
         if (endstopMatch) {
             const pin = endstopMatch[1].trim();
             if (!pin.includes('virtual_endstop') && !pin.includes('probe:')) {
@@ -744,7 +746,7 @@ function extractDefaultValues(configText, sections) {
     }
     
     if (stepperZ) {
-        const endstopMatch = stepperZ.content.match(/(?:^|#\s*)endstop_pin:\s*([^\n]+)/m);
+        const endstopMatch = stepperZ.content.match(/(?:^|#\s*)endstop_pin:\s*([^#\n]+)/m);
         if (endstopMatch) {
             const pin = endstopMatch[1].trim();
             if (!pin.includes('virtual_endstop') && !pin.includes('probe:')) {
@@ -1050,8 +1052,9 @@ function generate() {
     let output = '';
     let currentSectionIndex = -1;
     let inSaveConfig = false;
+    let i = 0;
     
-    for (let i = 0; i < lines.length; i++) {
+    while (i < lines.length) {
         const line = lines[i];
         
         // Check if we've reached SAVE_CONFIG
@@ -1062,6 +1065,7 @@ function generate() {
         // If in SAVE_CONFIG, just output as-is
         if (inSaveConfig) {
             output += line + '\n';
+            i++;
             continue;
         }
         
@@ -1082,6 +1086,7 @@ function generate() {
         if (currentSectionIndex === -1) {
             // Before any section or between sections - keep as-is
             output += line + '\n';
+            i++;
         } else {
             const section = sections[currentSectionIndex];
             const wasCommented = section.originallyCommented;
@@ -1096,9 +1101,17 @@ function generate() {
                 }
                 
                 // Apply modifications to specific values
-                processedLine = applyLineModifications(processedLine, section.name, settings, window.currentConfigData.savedValues);
+                const result = applyLineModifications(processedLine, section.name, settings, 
+                                                     window.currentConfigData.savedValues, lines, i);
                 
-                output += processedLine + '\n';
+                // Check if we need to skip the next line (when line was replaced)
+                if (result.skipNext) {
+                    output += result.line + '\n';
+                    i += 2; // Skip current and next line
+                } else {
+                    output += result.line + '\n';
+                    i++;
+                }
             } else {
                 // Section is DISABLED
                 let processedLine = line;
@@ -1109,6 +1122,7 @@ function generate() {
                 }
                 
                 output += processedLine + '\n';
+                i++;
             }
         }
     }
@@ -1132,9 +1146,9 @@ function generate() {
 
 /**
  * Apply modifications to a single line based on section context
- * This is where we change specific values like position_max, endstop positions, etc.
+ * Returns {line: string, skipNext: boolean} to handle multi-line replacements
  */
-function applyLineModifications(line, sectionName, settings, savedValues) {
+function applyLineModifications(line, sectionName, settings, savedValues, allLines, currentIndex) {
     const name = sectionName.toLowerCase();
     const trimmedLine = line.trim();
     
@@ -1144,13 +1158,14 @@ function applyLineModifications(line, sectionName, settings, savedValues) {
         if (keyMatch && !trimmedLine.startsWith('#')) {
             const key = `${name}.${keyMatch[1]}`;
             if (savedValues[key] !== undefined) {
-                return '#' + line + '  # (overridden in SAVE_CONFIG)';
+                return {line: '#' + line + '  # (overridden in SAVE_CONFIG)', skipNext: false};
             }
         }
     }
     
     // Apply modifications based on section and line content
     let modified = line;
+    let skipNext = false;
     
     // Kinematics modifications
     if (name === 'printer' && trimmedLine.startsWith('kinematics:')) {
@@ -1164,12 +1179,21 @@ function applyLineModifications(line, sectionName, settings, savedValues) {
         if (settings.sensorlessXY && isStepper) {
             // ENABLE sensorless homing
             
-            // Change endstop_pin to virtual endstop
+            // If this is a physical endstop_pin line, comment it and add virtual on next line
             if (trimmedLine.match(/^endstop_pin:/) && !trimmedLine.includes('virtual_endstop')) {
-                // Comment out physical endstop, keep as reference
-                if (!trimmedLine.startsWith('#')) {
-                    const axis = name === 'stepper_x' ? 'x' : 'y';
-                    return `#${line}  # Physical endstop (disabled for sensorless)\nendstop_pin: tmc2209_${name}:virtual_endstop`;
+                const axis = name === 'stepper_x' ? 'x' : 'y';
+                modified = `#${line}  # Physical endstop (disabled for sensorless)\nendstop_pin: tmc2209_${name}:virtual_endstop`;
+            }
+            
+            // If this is already a commented physical endstop, keep it commented
+            if (trimmedLine.match(/^#.*endstop_pin:/) && !trimmedLine.includes('virtual_endstop')) {
+                // Check if next line is the virtual endstop - if not, add it
+                if (currentIndex + 1 < allLines.length) {
+                    const nextLine = allLines[currentIndex + 1].trim();
+                    if (!nextLine.includes('virtual_endstop')) {
+                        const axis = name === 'stepper_x' ? 'x' : 'y';
+                        modified = line + '\nendstop_pin: tmc2209_${name}:virtual_endstop';
+                    }
                 }
             }
             
@@ -1181,11 +1205,43 @@ function applyLineModifications(line, sectionName, settings, savedValues) {
         } else if (!settings.sensorlessXY && isStepper) {
             // DISABLE sensorless homing (restore physical endstop)
             
-            // If line has virtual_endstop, we need to restore physical endstop
+            // If this is a commented physical endstop, uncomment it
+            // Match any pin name format: ^PC0, !PA7, gpio15, ^!PB3, etc.
+            // Basically anything that's NOT virtual_endstop or probe:
+            if (trimmedLine.match(/^#\s*endstop_pin:/) && 
+                !trimmedLine.includes('virtual_endstop') && 
+                !trimmedLine.includes('probe:')) {
+                // Uncomment the physical endstop pin
+                modified = line.replace(/^(\s*)#\s*/, '$1');
+                
+                // Check if next line has the virtual endstop - if so, comment it out
+                if (currentIndex + 1 < allLines.length) {
+                    const nextLine = allLines[currentIndex + 1];
+                    if (nextLine.includes('virtual_endstop')) {
+                        // We'll comment out the virtual endstop on the next line
+                        // But we can't modify it from here, so we mark the virtual line for commenting
+                    }
+                }
+            }
+            
+            // If line has virtual_endstop, comment it out
             if (trimmedLine.match(/^endstop_pin:.*virtual_endstop/)) {
-                // Look for commented physical endstop on previous line or in section
-                // For now, just comment it out with a note
-                return `#${line}  # Sensorless disabled - configure physical endstop_pin`;
+                // Check if previous line has a commented physical endstop
+                if (currentIndex > 0) {
+                    const prevLine = allLines[currentIndex - 1];
+                    // Check if previous line is now an uncommented physical endstop
+                    if (prevLine.trim().match(/^endstop_pin:/) && 
+                        !prevLine.includes('virtual_endstop') &&
+                        !prevLine.includes('#')) {
+                        // Previous line was the uncommented physical endstop, skip this virtual line
+                        skipNext = true;
+                        modified = '';  // Don't output this line
+                    } else {
+                        modified = `#${line}  # Sensorless disabled - configure physical endstop_pin`;
+                    }
+                } else {
+                    modified = `#${line}  # Sensorless disabled - configure physical endstop_pin`;
+                }
             }
             
             // Restore normal homing_retract_dist if it was set to 0
@@ -1201,9 +1257,12 @@ function applyLineModifications(line, sectionName, settings, savedValues) {
             // Enable diag_pin and driver_SGTHRS
             if (trimmedLine.match(/^#.*diag_pin:/)) {
                 // Uncomment diag_pin
-                modified = line.replace(/^#\s*/, '');
+                modified = line.replace(/^(\s*)#\s*/, '$1');
             }
-            // Note: driver_SGTHRS should be added if not present, but that's complex for line-by-line
+            if (trimmedLine.match(/^#.*driver_SGTHRS:/)) {
+                // Uncomment driver_SGTHRS
+                modified = line.replace(/^(\s*)#\s*/, '$1');
+            }
         } else {
             // Disable sensorless - comment out diag_pin and driver_SGTHRS
             if (trimmedLine.match(/^diag_pin:/) && !trimmedLine.startsWith('#')) {
@@ -1262,7 +1321,7 @@ function applyLineModifications(line, sectionName, settings, savedValues) {
         modified = line.replace(/y_offset:\s*[-\d.]+/, `y_offset: ${settings.probeOffsetY}`);
     }
     
-    return modified;
+    return {line: modified, skipNext: skipNext};
 }
 
 /**
