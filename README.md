@@ -27,6 +27,16 @@ This tool helps you generate that config file by:
 
 ---
 
+## What this is not
+
+I'm not trying to make a magic tool that will create perfect klipper configs for all kinds of setup, that is just not a realistic goal.
+With this tool, I want to help users create "base" configs for their setup to decrease the time needed for a functional printer.
+The less time you spend finding the right line to enable/disable for your spesific usecase can be eliminated and you can focus on optimizing your printers functionality, not reading trough documentation og seaching online for an existing config that maches your usecase exactly.
+
+This is meant as a tool to _simplify_ the klipper experience.
+
+---
+
 ## Current Features
 
 - Recognizes all sections in a config, including commented-out ones
@@ -51,6 +61,9 @@ The goal is to create a tool that generates complete, working configs that requi
 - [ ] Multiple Z stepper support
 - [ ] Extruder configuration (rotation distance calculator, pressure advance)
 - [ ] Input shaper defaults
+- [ ] Keep saved settings in uploaded cfg
+- [ ] Add "default" values as notes
+- [ ] Feature to keep inportant notes in configs
 
 ### Medium Term
 - [ ] Printer profile presets (Ender 3, Voron, Prusa, etc.)
