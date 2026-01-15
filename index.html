@@ -475,6 +475,51 @@
             color: #fef2f2;
         }
         
+        /* Sensorless Warning */
+        .sensorless-warning {
+            background: linear-gradient(135deg, #7f1d1d, #991b1b);
+            border: 2px solid #dc2626;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+        
+        .sensorless-warning .warning-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        
+        .sensorless-warning .warning-content {
+            flex: 1;
+        }
+        
+        .sensorless-warning .warning-content strong {
+            display: block;
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+            color: #fecaca;
+        }
+        
+        .sensorless-warning .warning-content p {
+            margin: 4px 0;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #fef2f2;
+        }
+        
+        .sensorless-warning .warning-content code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+        
         /* Driver Count Display */
         .driver-count-display {
             margin: 10px 0;
@@ -733,7 +778,7 @@
             
             <!-- Sensorless Homing -->
             <div class="checkbox-group" style="margin-top: 10px;">
-                <input type="checkbox" id="sensorlessXY">
+                <input type="checkbox" id="sensorlessXY" onchange="updateSensorlessWarning()">
                 <span>Sensorless Homing (X/Y)</span>
             </div>
             <p class="option-hint">Uses TMC StallGuard instead of physical endstops. Requires TMC2209/2130/5160 drivers.</p>

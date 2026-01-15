@@ -306,6 +306,43 @@ function updateKinematicsOptions() {
 }
 
 /**
+ * Update warnings for sensorless homing configuration
+ */
+function updateSensorlessWarning() {
+    const sensorlessCheckbox = document.getElementById('sensorlessXY');
+    const defaults = window.currentConfigData?.defaultValues || {};
+    
+    // Remove existing warning
+    let warningEl = document.getElementById('sensorlessWarning');
+    if (warningEl) {
+        warningEl.remove();
+    }
+    
+    // If sensorless is DISABLED but config has sensorless enabled (no physical endstops)
+    if (!sensorlessCheckbox.checked && (!defaults.hasPhysicalEndstopX || !defaults.hasPhysicalEndstopY)) {
+        warningEl = document.createElement('div');
+        warningEl.id = 'sensorlessWarning';
+        warningEl.className = 'sensorless-warning';
+        
+        const missingEndstops = [];
+        if (!defaults.hasPhysicalEndstopX) missingEndstops.push('X');
+        if (!defaults.hasPhysicalEndstopY) missingEndstops.push('Y');
+        
+        warningEl.innerHTML = `
+            <div class="warning-icon">⚠️</div>
+            <div class="warning-content">
+                <strong>Missing Physical Endstops</strong>
+                <p>This config appears to use sensorless homing (no physical endstop pins defined for ${missingEndstops.join(' and ')} axis).</p>
+                <p>If you disable sensorless homing, you'll need to manually add <code>endstop_pin</code> definitions to the stepper sections, or keep sensorless homing enabled.</p>
+            </div>
+        `;
+        
+        const checkbox = document.querySelector('.checkbox-group:has(#sensorlessXY)');
+        checkbox.parentNode.insertBefore(warningEl, checkbox.nextSibling);
+    }
+}
+
+/**
  * Update UI based on Z motor count selection
  */
 function updateZMotorOptions() {
@@ -478,6 +515,7 @@ function processConfig(configText, fileName) {
     
     renderSectionCheckboxes(sections);
     updateDriverWarning();
+    updateSensorlessWarning();
 }
 
 /**
@@ -674,6 +712,46 @@ function extractDefaultValues(configText, sections) {
     }
     
     const isDelta = defaults.kinematics === 'delta';
+    
+    // Check for physical endstops in stepper sections
+    defaults.hasPhysicalEndstopX = false;
+    defaults.hasPhysicalEndstopY = false;
+    defaults.hasPhysicalEndstopZ = false;
+    
+    const stepperX = sections.find(s => s.name.toLowerCase() === 'stepper_x');
+    const stepperY = sections.find(s => s.name.toLowerCase() === 'stepper_y');
+    const stepperZ = sections.find(s => s.name.toLowerCase() === 'stepper_z');
+    
+    if (stepperX) {
+        // Check if there's a physical endstop pin (not virtual_endstop)
+        const endstopMatch = stepperX.content.match(/(?:^|#\s*)endstop_pin:\s*([^\n]+)/m);
+        if (endstopMatch) {
+            const pin = endstopMatch[1].trim();
+            if (!pin.includes('virtual_endstop') && !pin.includes('probe:')) {
+                defaults.hasPhysicalEndstopX = true;
+            }
+        }
+    }
+    
+    if (stepperY) {
+        const endstopMatch = stepperY.content.match(/(?:^|#\s*)endstop_pin:\s*([^\n]+)/m);
+        if (endstopMatch) {
+            const pin = endstopMatch[1].trim();
+            if (!pin.includes('virtual_endstop') && !pin.includes('probe:')) {
+                defaults.hasPhysicalEndstopY = true;
+            }
+        }
+    }
+    
+    if (stepperZ) {
+        const endstopMatch = stepperZ.content.match(/(?:^|#\s*)endstop_pin:\s*([^\n]+)/m);
+        if (endstopMatch) {
+            const pin = endstopMatch[1].trim();
+            if (!pin.includes('virtual_endstop') && !pin.includes('probe:')) {
+                defaults.hasPhysicalEndstopZ = true;
+            }
+        }
+    }
     
     if (isDelta) {
         // Delta printer - extract delta-specific parameters
@@ -1077,6 +1155,64 @@ function applyLineModifications(line, sectionName, settings, savedValues) {
     // Kinematics modifications
     if (name === 'printer' && trimmedLine.startsWith('kinematics:')) {
         modified = line.replace(/kinematics:\s*\w+/, `kinematics: ${settings.kinematicsKlipper}`);
+    }
+    
+    // Sensorless homing modifications
+    if (name === 'stepper_x' || name === 'stepper_y') {
+        const isStepper = name === 'stepper_x' || name === 'stepper_y';
+        
+        if (settings.sensorlessXY && isStepper) {
+            // ENABLE sensorless homing
+            
+            // Change endstop_pin to virtual endstop
+            if (trimmedLine.match(/^endstop_pin:/) && !trimmedLine.includes('virtual_endstop')) {
+                // Comment out physical endstop, keep as reference
+                if (!trimmedLine.startsWith('#')) {
+                    const axis = name === 'stepper_x' ? 'x' : 'y';
+                    return `#${line}  # Physical endstop (disabled for sensorless)\nendstop_pin: tmc2209_${name}:virtual_endstop`;
+                }
+            }
+            
+            // Add or modify homing_retract_dist to 0
+            if (trimmedLine.match(/^homing_retract_dist:/)) {
+                modified = line.replace(/homing_retract_dist:\s*[\d.]+/, 'homing_retract_dist: 0');
+            }
+            
+        } else if (!settings.sensorlessXY && isStepper) {
+            // DISABLE sensorless homing (restore physical endstop)
+            
+            // If line has virtual_endstop, we need to restore physical endstop
+            if (trimmedLine.match(/^endstop_pin:.*virtual_endstop/)) {
+                // Look for commented physical endstop on previous line or in section
+                // For now, just comment it out with a note
+                return `#${line}  # Sensorless disabled - configure physical endstop_pin`;
+            }
+            
+            // Restore normal homing_retract_dist if it was set to 0
+            if (trimmedLine.match(/^homing_retract_dist:\s*0/)) {
+                modified = line.replace(/homing_retract_dist:\s*0/, 'homing_retract_dist: 5');
+            }
+        }
+    }
+    
+    // TMC driver modifications for sensorless
+    if (name.startsWith('tmc2209 stepper_x') || name.startsWith('tmc2209 stepper_y')) {
+        if (settings.sensorlessXY) {
+            // Enable diag_pin and driver_SGTHRS
+            if (trimmedLine.match(/^#.*diag_pin:/)) {
+                // Uncomment diag_pin
+                modified = line.replace(/^#\s*/, '');
+            }
+            // Note: driver_SGTHRS should be added if not present, but that's complex for line-by-line
+        } else {
+            // Disable sensorless - comment out diag_pin and driver_SGTHRS
+            if (trimmedLine.match(/^diag_pin:/) && !trimmedLine.startsWith('#')) {
+                modified = '#' + line + '  # (sensorless homing disabled)';
+            }
+            if (trimmedLine.match(/^driver_SGTHRS:/) && !trimmedLine.startsWith('#')) {
+                modified = '#' + line + '  # (sensorless homing disabled)';
+            }
+        }
     }
     
     // Bed dimension modifications for cartesian
