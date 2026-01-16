@@ -1,5 +1,10 @@
 # Klipper Config Generator
 
+# Fairline (working title)
+Chart a smooth course for your Klipper setup.
+
+---
+
 A web-based tool for generating Klipper 3D printer configuration files.
 
 Access the tool here: https://kanrog.github.io/klipper-config-generator/
