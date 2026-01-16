@@ -1,5 +1,3 @@
-# Klipper Config Generator
-
 # Fairline (working title)
 Chart a smooth course for your Klipper setup.
 
