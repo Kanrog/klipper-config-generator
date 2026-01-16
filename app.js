@@ -7,10 +7,11 @@ window.currentConfigData = {
     raw: '',
     sections: [],
     fileName: '',
-    driverCount: 0,  // Total stepper drivers available on the board
-    saveConfigBlock: '',  // Preserved SAVE_CONFIG section from uploaded configs
-    defaultValues: {},  // Default values extracted from config (bed size, etc.)
-    includes: []  // [include] directives for external files
+    driverCount: 0,
+    saveConfigBlock: '',
+    defaultValues: {},
+    includes: [],
+    secondaryMcus: []  // Multi-MCU support
 };
 
 // Common include file presets
@@ -29,7 +30,81 @@ const INCLUDE_PRESETS = [
     { name: 'stealthburner_leds.cfg', description: 'Voron Stealthburner LED macros' },
 ];
 
-// Kinematics definitions with descriptions and settings
+// Secondary MCU presets
+const SECONDARY_MCU_PRESETS = {
+    'ebb36-v1.2': {
+        name: 'BTT EBB36 v1.2',
+        mcuName: 'EBBCan',
+        type: 'toolhead',
+        connectionType: 'canbus',
+        description: 'BigTreeTech EBB36 CAN toolhead board',
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.2.cfg'
+    },
+    'ebb42-v1.2': {
+        name: 'BTT EBB42 v1.2',
+        mcuName: 'EBBCan',
+        type: 'toolhead',
+        connectionType: 'canbus',
+        description: 'BigTreeTech EBB42 CAN toolhead board',
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.2.cfg'
+    },
+    'ebb36-v1.1': {
+        name: 'BTT EBB36 v1.1',
+        mcuName: 'EBBCan',
+        type: 'toolhead',
+        connectionType: 'canbus',
+        description: 'BigTreeTech EBB36 v1.1 CAN toolhead',
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.1.cfg'
+    },
+    'ebb36-v1.0': {
+        name: 'BTT EBB36 v1.0',
+        mcuName: 'EBBCan',
+        type: 'toolhead',
+        connectionType: 'canbus',
+        description: 'BigTreeTech EBB36 v1.0 CAN toolhead',
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.0.cfg'
+    },
+    'sht36': {
+        name: 'Mellow SHT36/42',
+        mcuName: 'sht',
+        type: 'toolhead',
+        connectionType: 'canbus',
+        description: 'Mellow FLY-SHT36/42 CAN toolhead'
+    },
+    'rpi': {
+        name: 'Raspberry Pi',
+        mcuName: 'host',
+        type: 'host',
+        connectionType: 'linux',
+        description: 'Raspberry Pi as secondary MCU for GPIO/sensors',
+        configFile: 'sample-raspberry-pi.cfg'
+    },
+    'expansion': {
+        name: 'Expansion Board',
+        mcuName: 'mcu2',
+        type: 'expansion',
+        connectionType: 'usb',
+        description: 'Additional printer board for more motors'
+    },
+    'mmu': {
+        name: 'MMU/ERCF Board',
+        mcuName: 'mmboard',
+        type: 'mmu',
+        connectionType: 'usb',
+        description: 'Multi-material unit control board',
+        configFile: 'sample-mmu2s-diy.cfg'
+    },
+    'duet-1lc': {
+        name: 'Duet3 1LC',
+        mcuName: 'toolboard',
+        type: 'toolhead',
+        connectionType: 'canbus',
+        description: 'Duet3 1LC CAN toolboard',
+        configFile: 'sample-duet3-1lc.cfg'
+    }
+};
+
+// Kinematics definitions
 const KINEMATICS = {
     cartesian: {
         name: 'Cartesian (Bed Slinger)',
@@ -90,12 +165,9 @@ const KINEMATICS = {
 };
 
 // ============================================
-// INCLUDE FILE MANAGEMENT FUNCTIONS
+// INCLUDE FILE MANAGEMENT
 // ============================================
 
-/**
- * Extract existing [include] directives from config text
- */
 function extractIncludes(configText) {
     const includes = [];
     const lines = configText.split('\n');
@@ -116,16 +188,11 @@ function extractIncludes(configText) {
     return includes;
 }
 
-/**
- * Render the includes UI section
- */
 function renderIncludesUI() {
     const container = document.getElementById('includes-list');
     if (!container) return;
     
     const includes = window.currentConfigData.includes || [];
-    
-    // Build the includes list HTML
     let html = '';
     
     if (includes.length === 0) {
@@ -155,15 +222,11 @@ function renderIncludesUI() {
     updateIncludeCount();
 }
 
-/**
- * Add a new include file
- */
 function addInclude(fileName) {
     if (!fileName || fileName.trim() === '') return;
     
     fileName = fileName.trim();
     
-    // Check if already exists
     const exists = window.currentConfigData.includes.some(
         inc => inc.fileName.toLowerCase() === fileName.toLowerCase()
     );
@@ -180,35 +243,24 @@ function addInclude(fileName) {
     
     renderIncludesUI();
     
-    // Clear the custom input if used
     const customInput = document.getElementById('customIncludeInput');
     if (customInput) customInput.value = '';
     
-    // Reset the preset dropdown
     const presetSelect = document.getElementById('includePresetSelect');
     if (presetSelect) presetSelect.value = '';
 }
 
-/**
- * Remove an include file
- */
 function removeInclude(index) {
     window.currentConfigData.includes.splice(index, 1);
     renderIncludesUI();
 }
 
-/**
- * Toggle an include file enabled/disabled
- */
 function toggleInclude(index) {
     window.currentConfigData.includes[index].enabled = 
         !window.currentConfigData.includes[index].enabled;
     renderIncludesUI();
 }
 
-/**
- * Toggle all includes on/off
- */
 function toggleAllIncludes(enabled) {
     window.currentConfigData.includes.forEach(inc => {
         inc.enabled = enabled;
@@ -216,9 +268,6 @@ function toggleAllIncludes(enabled) {
     renderIncludesUI();
 }
 
-/**
- * Update the include count display
- */
 function updateIncludeCount() {
     const countEl = document.getElementById('includeCount');
     if (!countEl) return;
@@ -233,20 +282,14 @@ function updateIncludeCount() {
     }
 }
 
-/**
- * Handle preset selection from dropdown
- */
 function handleIncludePresetSelect(select) {
     const value = select.value;
     if (value) {
         addInclude(value);
-        select.value = ''; // Reset dropdown
+        select.value = '';
     }
 }
 
-/**
- * Handle custom include input
- */
 function handleCustomIncludeAdd() {
     const input = document.getElementById('customIncludeInput');
     if (input && input.value.trim()) {
@@ -254,9 +297,6 @@ function handleCustomIncludeAdd() {
     }
 }
 
-/**
- * Handle Enter key in custom include input
- */
 function handleCustomIncludeKeypress(event) {
     if (event.key === 'Enter') {
         event.preventDefault();
@@ -264,9 +304,6 @@ function handleCustomIncludeKeypress(event) {
     }
 }
 
-/**
- * Generate the [include] block for the config
- */
 function generateIncludesBlock() {
     const includes = window.currentConfigData.includes || [];
     
@@ -290,19 +327,507 @@ function generateIncludesBlock() {
 }
 
 // ============================================
+// SECONDARY MCU MANAGEMENT
+// ============================================
+
+function addSecondaryMcuFromPreset(presetKey) {
+    const preset = SECONDARY_MCU_PRESETS[presetKey];
+    if (!preset) {
+        console.error('Unknown MCU preset:', presetKey);
+        return;
+    }
+    
+    const id = 'mcu_' + Date.now();
+    
+    const mcu = {
+        id: id,
+        presetKey: presetKey,
+        name: preset.mcuName,
+        displayName: preset.name,
+        type: preset.type,
+        connectionType: preset.connectionType,
+        description: preset.description,
+        serial: preset.connectionType === 'canbus' ? '' : '/dev/serial/by-id/usb-Klipper_CHANGE_ME',
+        canbus_uuid: preset.connectionType === 'canbus' ? '' : null,
+        configFile: preset.configFile || null,
+        configData: null,
+        enabled: true,
+        isCustomUpload: false
+    };
+    
+    if (preset.type === 'expansion') {
+        showExpansionBoardModal(mcu);
+        return;
+    }
+    
+    if (mcu.configFile) {
+        loadSecondaryMcuConfig(mcu);
+    }
+    
+    window.currentConfigData.secondaryMcus.push(mcu);
+    renderSecondaryMcusUI();
+}
+
+function handleSecondaryMcuUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.cfg')) {
+        alert('Please upload a .cfg file');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const configText = e.target.result;
+        const id = 'mcu_' + Date.now();
+        
+        const mcuNameMatch = configText.match(/\[mcu\s+(\w+)\]/);
+        const detectedName = mcuNameMatch ? mcuNameMatch[1] : 'mcu2';
+        
+        let connectionType = 'usb';
+        if (configText.includes('canbus_uuid')) {
+            connectionType = 'canbus';
+        } else if (configText.includes('/tmp/klipper_host_mcu')) {
+            connectionType = 'linux';
+        }
+        
+        const mcu = {
+            id: id,
+            presetKey: null,
+            name: detectedName,
+            displayName: `📁 ${file.name}`,
+            type: 'custom',
+            connectionType: connectionType,
+            description: `Uploaded config: ${file.name}`,
+            serial: connectionType === 'canbus' ? '' : '/dev/serial/by-id/usb-Klipper_CHANGE_ME',
+            canbus_uuid: connectionType === 'canbus' ? '' : null,
+            configFile: file.name,
+            configData: configText,
+            enabled: true,
+            isCustomUpload: true
+        };
+        
+        window.currentConfigData.secondaryMcus.push(mcu);
+        renderSecondaryMcusUI();
+        
+        event.target.value = '';
+    };
+    reader.readAsText(file);
+}
+
+async function loadSecondaryMcuConfig(mcu) {
+    if (!mcu.configFile) return;
+    
+    try {
+        const response = await fetch(`./${CONFIG_FOLDER}/${mcu.configFile}`);
+        if (!response.ok) {
+            console.warn(`Could not load config file: ${mcu.configFile}`);
+            return;
+        }
+        
+        const configText = await response.text();
+        mcu.configData = configText;
+        
+        renderSecondaryMcusUI();
+    } catch (error) {
+        console.error('Error loading secondary MCU config:', error);
+    }
+}
+
+function removeSecondaryMcu(mcuId) {
+    const index = window.currentConfigData.secondaryMcus.findIndex(m => m.id === mcuId);
+    if (index !== -1) {
+        window.currentConfigData.secondaryMcus.splice(index, 1);
+        renderSecondaryMcusUI();
+    }
+}
+
+function toggleSecondaryMcu(mcuId) {
+    const mcu = window.currentConfigData.secondaryMcus.find(m => m.id === mcuId);
+    if (mcu) {
+        mcu.enabled = !mcu.enabled;
+        renderSecondaryMcusUI();
+    }
+}
+
+function updateSecondaryMcuName(mcuId, newName) {
+    const mcu = window.currentConfigData.secondaryMcus.find(m => m.id === mcuId);
+    if (mcu) {
+        mcu.name = newName.replace(/\s+/g, '_').toLowerCase();
+        renderSecondaryMcusUI();
+    }
+}
+
+function updateSecondaryMcuConnection(mcuId, value) {
+    const mcu = window.currentConfigData.secondaryMcus.find(m => m.id === mcuId);
+    if (mcu) {
+        if (mcu.connectionType === 'canbus') {
+            mcu.canbus_uuid = value;
+        } else {
+            mcu.serial = value;
+        }
+    }
+}
+
+function updateSecondaryMcuConnectionType(mcuId, connectionType) {
+    const mcu = window.currentConfigData.secondaryMcus.find(m => m.id === mcuId);
+    if (mcu) {
+        mcu.connectionType = connectionType;
+        if (connectionType === 'canbus') {
+            mcu.canbus_uuid = '';
+            mcu.serial = '';
+        } else if (connectionType === 'linux') {
+            mcu.serial = '/tmp/klipper_host_mcu';
+            mcu.canbus_uuid = null;
+        } else {
+            mcu.serial = '/dev/serial/by-id/usb-Klipper_CHANGE_ME';
+            mcu.canbus_uuid = null;
+        }
+        renderSecondaryMcusUI();
+    }
+}
+
+function showExpansionBoardModal(mcu) {
+    const modal = document.createElement('div');
+    modal.className = 'mcu-modal-overlay';
+    modal.id = 'expansionBoardModal';
+    
+    modal.innerHTML = `
+        <div class="mcu-modal">
+            <div class="mcu-modal-header">
+                <h3>🔧 Add Expansion Board</h3>
+                <button class="mcu-modal-close" onclick="closeExpansionBoardModal()">×</button>
+            </div>
+            <div class="mcu-modal-body">
+                <p class="mcu-modal-description">
+                    Select a board config from the list or upload your own .cfg file.
+                    This board will be added as a secondary MCU for additional stepper drivers.
+                </p>
+                
+                <div class="form-group">
+                    <label>MCU Name (used in config)</label>
+                    <input type="text" id="expansionMcuName" value="${mcu.name}" 
+                           placeholder="e.g., z_mcu, mcu2, expansion">
+                    <div class="hint">This name will prefix all pins, e.g., z_mcu:PA0</div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Board Config</label>
+                    <input type="text" id="expansionBoardSearch" placeholder="Search boards..." 
+                           oninput="filterExpansionBoards()">
+                    <select id="expansionBoardSelect" size="8" class="board-select-list">
+                        <option value="">Loading boards...</option>
+                    </select>
+                </div>
+                
+                <div class="mcu-modal-divider">
+                    <span>OR</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="file-upload-label expansion-upload">
+                        <span>📁 Upload custom board .cfg</span>
+                        <input type="file" accept=".cfg" id="expansionFileUpload">
+                    </label>
+                    <div id="expansionUploadedFile" class="uploaded-file-name"></div>
+                </div>
+            </div>
+            <div class="mcu-modal-footer">
+                <button class="btn btn-secondary" onclick="closeExpansionBoardModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmExpansionBoard()">Add Board</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    window._pendingExpansionMcu = mcu;
+    
+    populateExpansionBoardList();
+    
+    document.getElementById('expansionFileUpload').addEventListener('change', handleExpansionFileSelect);
+}
+
+function populateExpansionBoardList() {
+    const select = document.getElementById('expansionBoardSelect');
+    if (!select || !window.boardOptions) return;
+    
+    select.innerHTML = '';
+    
+    window.boardOptions.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.text;
+        select.appendChild(option);
+    });
+}
+
+function filterExpansionBoards() {
+    const searchInput = document.getElementById('expansionBoardSearch');
+    const select = document.getElementById('expansionBoardSelect');
+    const filter = searchInput.value.toLowerCase();
+    
+    if (!window.boardOptions) return;
+    
+    select.innerHTML = '';
+    
+    const filtered = window.boardOptions.filter(opt => 
+        opt.text.toLowerCase().includes(filter) || 
+        opt.value.toLowerCase().includes(filter)
+    );
+    
+    if (filtered.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = 'No matching boards found';
+        option.disabled = true;
+        select.appendChild(option);
+    } else {
+        filtered.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.text;
+            select.appendChild(option);
+        });
+    }
+}
+
+function handleExpansionFileSelect(event) {
+    const file = event.target.files[0];
+    const uploadedDisplay = document.getElementById('expansionUploadedFile');
+    
+    if (file) {
+        uploadedDisplay.textContent = `Selected: ${file.name}`;
+        uploadedDisplay.style.display = 'block';
+        
+        document.getElementById('expansionBoardSelect').selectedIndex = -1;
+        
+        window._pendingExpansionFile = file;
+    }
+}
+
+function closeExpansionBoardModal() {
+    const modal = document.getElementById('expansionBoardModal');
+    if (modal) {
+        modal.remove();
+    }
+    window._pendingExpansionMcu = null;
+    window._pendingExpansionFile = null;
+}
+
+async function confirmExpansionBoard() {
+    const mcu = window._pendingExpansionMcu;
+    if (!mcu) return;
+    
+    const mcuNameInput = document.getElementById('expansionMcuName');
+    mcu.name = mcuNameInput.value.replace(/\s+/g, '_').toLowerCase() || 'mcu2';
+    
+    if (window._pendingExpansionFile) {
+        const file = window._pendingExpansionFile;
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            mcu.configData = e.target.result;
+            mcu.configFile = file.name;
+            mcu.displayName = `📁 ${file.name}`;
+            mcu.isCustomUpload = true;
+            
+            window.currentConfigData.secondaryMcus.push(mcu);
+            renderSecondaryMcusUI();
+            closeExpansionBoardModal();
+        };
+        
+        reader.readAsText(file);
+        return;
+    }
+    
+    const boardSelect = document.getElementById('expansionBoardSelect');
+    const selectedBoard = boardSelect.value;
+    
+    if (!selectedBoard) {
+        alert('Please select a board or upload a config file.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`./${CONFIG_FOLDER}/${selectedBoard}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.status}`);
+        }
+        
+        const configText = await response.text();
+        mcu.configData = configText;
+        mcu.configFile = selectedBoard;
+        mcu.displayName = selectedBoard.replace('generic-', '').replace('.cfg', '').replace(/-/g, ' ').toUpperCase();
+        
+        window.currentConfigData.secondaryMcus.push(mcu);
+        renderSecondaryMcusUI();
+        closeExpansionBoardModal();
+        
+    } catch (error) {
+        console.error('Error loading board config:', error);
+        alert('Error loading board config. Check console for details.');
+    }
+}
+
+function renderSecondaryMcusUI() {
+    const container = document.getElementById('secondary-mcu-list');
+    if (!container) return;
+    
+    const mcus = window.currentConfigData.secondaryMcus || [];
+    
+    if (mcus.length === 0) {
+        container.innerHTML = '<div class="mcu-empty">No secondary MCUs added. Use the options below to add toolhead boards, expansion boards, or host MCU.</div>';
+        updateSecondaryMcuCount();
+        return;
+    }
+    
+    let html = '';
+    
+    mcus.forEach((mcu) => {
+        const connectionPlaceholder = mcu.connectionType === 'canbus' 
+            ? 'e.g., 0e0d81e4210c' 
+            : mcu.connectionType === 'linux'
+            ? '/tmp/klipper_host_mcu'
+            : '/dev/serial/by-id/usb-Klipper_...';
+        
+        const connectionValue = mcu.connectionType === 'canbus' 
+            ? (mcu.canbus_uuid || '')
+            : (mcu.serial || '');
+        
+        const typeIcon = {
+            'toolhead': '🔧',
+            'expansion': '📦',
+            'host': '🖥️',
+            'mmu': '🎨',
+            'custom': '📁'
+        }[mcu.type] || '📦';
+        
+        html += `
+            <div class="mcu-item ${mcu.enabled ? '' : 'disabled'}" data-mcu-id="${mcu.id}">
+                <div class="mcu-item-header">
+                    <div class="mcu-item-title">
+                        <input type="checkbox" 
+                               id="mcu-enable-${mcu.id}" 
+                               ${mcu.enabled ? 'checked' : ''} 
+                               onchange="toggleSecondaryMcu('${mcu.id}')">
+                        <span class="mcu-type-icon">${typeIcon}</span>
+                        <span class="mcu-display-name">${mcu.displayName}</span>
+                    </div>
+                    <button class="mcu-remove-btn" onclick="removeSecondaryMcu('${mcu.id}')" title="Remove">×</button>
+                </div>
+                
+                <div class="mcu-item-body">
+                    <div class="mcu-field">
+                        <label>MCU Name</label>
+                        <input type="text" 
+                               value="${mcu.name}" 
+                               onchange="updateSecondaryMcuName('${mcu.id}', this.value)"
+                               placeholder="e.g., EBBCan, z_mcu">
+                        <div class="hint">Used as pin prefix: ${mcu.name}:PA0</div>
+                    </div>
+                    
+                    <div class="mcu-field">
+                        <label>Connection Type</label>
+                        <select onchange="updateSecondaryMcuConnectionType('${mcu.id}', this.value)">
+                            <option value="usb" ${mcu.connectionType === 'usb' ? 'selected' : ''}>USB Serial</option>
+                            <option value="canbus" ${mcu.connectionType === 'canbus' ? 'selected' : ''}>CAN Bus</option>
+                            <option value="linux" ${mcu.connectionType === 'linux' ? 'selected' : ''}>Linux MCU (RPi)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mcu-field">
+                        <label>${mcu.connectionType === 'canbus' ? 'CAN Bus UUID' : 'Serial Port'}</label>
+                        <input type="text" 
+                               value="${connectionValue}" 
+                               onchange="updateSecondaryMcuConnection('${mcu.id}', this.value)"
+                               placeholder="${connectionPlaceholder}"
+                               ${mcu.connectionType === 'linux' ? 'readonly' : ''}>
+                    </div>
+                    
+                    ${mcu.configFile ? `
+                        <div class="mcu-config-info">
+                            <span class="mcu-config-label">Config:</span>
+                            <span class="mcu-config-file">${mcu.configFile}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    updateSecondaryMcuCount();
+}
+
+function updateSecondaryMcuCount() {
+    const countEl = document.getElementById('secondaryMcuCount');
+    if (!countEl) return;
+    
+    const total = window.currentConfigData.secondaryMcus.length;
+    const enabled = window.currentConfigData.secondaryMcus.filter(m => m.enabled).length;
+    
+    if (total === 0) {
+        countEl.textContent = '0';
+    } else {
+        countEl.textContent = `${enabled}/${total}`;
+    }
+}
+
+function handleSecondaryMcuPresetSelect(select) {
+    const value = select.value;
+    if (value) {
+        addSecondaryMcuFromPreset(value);
+        select.value = '';
+    }
+}
+
+function generateSecondaryMcuBlocks() {
+    const mcus = window.currentConfigData.secondaryMcus.filter(m => m.enabled);
+    
+    if (mcus.length === 0) {
+        return '';
+    }
+    
+    let output = '\n#=====================================#\n';
+    output += '#       SECONDARY MCU CONFIGS         #\n';
+    output += '#=====================================#\n\n';
+    
+    for (const mcu of mcus) {
+        output += `[mcu ${mcu.name}]\n`;
+        
+        if (mcu.connectionType === 'canbus') {
+            output += `canbus_uuid: ${mcu.canbus_uuid || 'PASTE_YOUR_UUID_HERE'}\n`;
+        } else if (mcu.connectionType === 'linux') {
+            output += `serial: /tmp/klipper_host_mcu\n`;
+        } else {
+            output += `serial: ${mcu.serial || '/dev/serial/by-id/usb-Klipper_CHANGE_ME'}\n`;
+        }
+        output += '\n';
+        
+        if (mcu.configFile) {
+            output += `# Config based on: ${mcu.configFile}\n`;
+        }
+        if (mcu.description) {
+            output += `# ${mcu.description}\n`;
+        }
+        output += `# Remember to prefix all pins with "${mcu.name}:" when using this MCU\n`;
+        output += `# Example: step_pin: ${mcu.name}:PB13\n`;
+        output += '\n';
+    }
+    
+    return output;
+}
+
+// ============================================
 // STEPPER DRIVER COUNTING
 // ============================================
 
-/**
- * Count the number of stepper drivers available on the board
- * Uses multiple detection methods for accuracy
- */
 function countStepperDrivers(configText) {
     if (!configText) return 0;
     
     const lines = configText.split('\n');
     
-    // METHOD 1: Count TMC driver sections (most reliable)
     const tmcSections = new Set();
     const tmcPattern = /^#*\s*\[(tmc\d+)\s+(stepper_[xyzabc]\d*|extruder\d*)\]/i;
     
@@ -315,11 +840,9 @@ function countStepperDrivers(configText) {
     }
     
     if (tmcSections.size > 0) {
-        console.log('Found TMC sections:', tmcSections);
         return tmcSections.size;
     }
     
-    // METHOD 2: Try to detect board type from comments
     const boardPatterns = [
         { pattern: /skr.*mini.*e3/i, drivers: 4 },
         { pattern: /skr.*1\.3/i, drivers: 5 },
@@ -344,12 +867,10 @@ function countStepperDrivers(configText) {
     const headerText = lines.slice(0, 50).join('\n');
     for (const { pattern, drivers } of boardPatterns) {
         if (pattern.test(headerText)) {
-            console.log('Detected board pattern:', pattern, 'drivers:', drivers);
             return drivers;
         }
     }
     
-    // METHOD 3: Count all stepper sections
     const allStepperSections = new Set();
     const stepperPattern = /^#*\s*\[(?:stepper_[xyzabc]\d*|extruder\d*)\]/i;
     
@@ -364,8 +885,6 @@ function countStepperDrivers(configText) {
         }
     }
     
-    console.log('Found stepper sections:', allStepperSections);
-    
     if (allStepperSections.size > 0) {
         return allStepperSections.size;
     }
@@ -373,9 +892,6 @@ function countStepperDrivers(configText) {
     return 4;
 }
 
-/**
- * Calculate total drivers needed based on current settings
- */
 function calculateRequiredDrivers() {
     const kinematicsSelect = document.getElementById('kinematicsSelect');
     const zMotorCount = parseInt(document.getElementById('zMotorCount').value);
@@ -393,14 +909,11 @@ function calculateRequiredDrivers() {
         required += zMotorCount;
     }
     
-    required += 1; // Extruder
+    required += 1;
     
     return required;
 }
 
-/**
- * Update driver warning display
- */
 function updateDriverWarning() {
     const required = calculateRequiredDrivers();
     const available = window.currentConfigData.driverCount;
@@ -450,7 +963,7 @@ function updateDriverWarning() {
             <div class="warning-content">
                 <strong>Insufficient Stepper Drivers</strong>
                 <p>This configuration requires <strong>${required} drivers</strong> but the selected board only has <strong>${available} drivers</strong>.</p>
-                <p>You will need to set up a <strong>multi-MCU configuration</strong> with an additional board, or reduce the number of motors.</p>
+                <p>Add a <strong>Secondary MCU</strong> below for additional motor outputs.</p>
             </div>
         `;
         warningEl.style.display = 'flex';
@@ -459,9 +972,6 @@ function updateDriverWarning() {
     }
 }
 
-/**
- * Update UI based on selected kinematics
- */
 function updateKinematicsOptions() {
     const kinematicsSelect = document.getElementById('kinematicsSelect');
     const selected = kinematicsSelect.value;
@@ -505,9 +1015,6 @@ function updateKinematicsOptions() {
     updateDriverWarning();
 }
 
-/**
- * Update warnings for sensorless homing configuration
- */
 function updateSensorlessWarning() {
     const sensorlessCheckbox = document.getElementById('sensorlessXY');
     const defaults = window.currentConfigData?.defaultValues || {};
@@ -535,14 +1042,13 @@ function updateSensorlessWarning() {
             </div>
         `;
         
-        const checkbox = document.querySelector('.checkbox-group:has(#sensorlessXY)');
-        checkbox.parentNode.insertBefore(warningEl, checkbox.nextSibling);
+        const checkbox = document.querySelector('.checkbox-row:has(#sensorlessXY)');
+        if (checkbox) {
+            checkbox.parentNode.insertBefore(warningEl, checkbox.nextSibling);
+        }
     }
 }
 
-/**
- * Update UI based on Z motor count selection
- */
 function updateZMotorOptions() {
     const count = parseInt(document.getElementById('zMotorCount').value);
     const zTiltOptions = document.getElementById('zTiltOptions');
@@ -553,10 +1059,6 @@ function updateZMotorOptions() {
     
     if (count === 2 || count === 3) {
         zTiltOptions.style.display = 'block';
-        document.getElementById('zTiltHint').textContent = 
-            count === 2 
-                ? 'Levels the gantry using 2 Z motors (front/back or left/right)'
-                : 'Levels the gantry using 3 Z motors (typically triangle pattern)';
     } else if (count === 4) {
         quadGantryOptions.style.display = 'block';
     }
@@ -564,9 +1066,6 @@ function updateZMotorOptions() {
     updateDriverWarning();
 }
 
-/**
- * Update Z endstop options visibility
- */
 function updateZEndstopOptions() {
     const zEndstopType = document.getElementById('zEndstopType').value;
     const probeOffsets = document.getElementById('probeOffsets');
@@ -586,8 +1085,8 @@ window.onload = async () => {
     const select = document.getElementById('boardSelect');
     const searchInput = document.getElementById('boardSearch');
     
-    // Initialize includes UI
     renderIncludesUI();
+    renderSecondaryMcusUI();
     
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${CONFIG_FOLDER}`);
@@ -713,12 +1212,14 @@ function processConfig(configText, fileName) {
         saveConfigBlock: saveConfigBlock,
         savedValues: savedValues,
         defaultValues: defaultValues,
-        includes: includes
+        includes: includes,
+        secondaryMcus: window.currentConfigData.secondaryMcus || []
     };
     
     populateDefaultValues(defaultValues);
     renderSectionCheckboxes(sections);
     renderIncludesUI();
+    renderSecondaryMcusUI();
     updateDriverWarning();
     updateSensorlessWarning();
 }
@@ -748,7 +1249,6 @@ function populateDefaultValues(defaults) {
         }
         if (defaults.deltaArmLength) {
             document.getElementById('deltaArmLength').value = defaults.deltaArmLength;
-            document.getElementById('deltaArmLength').placeholder = `Default: ${defaults.deltaArmLength}`;
         }
     } else {
         if (defaults.bedX) {
@@ -839,7 +1339,6 @@ function parseConfigSections(configText) {
             const isCommented = !!match[1];
             const sectionName = match[2].trim();
             
-            // Skip [include] sections - they are handled separately
             if (sectionName.toLowerCase().startsWith('include ') || sectionName.toLowerCase() === 'include') {
                 currentSection = null;
                 continue;
@@ -1025,12 +1524,10 @@ function renderSectionCheckboxes(sections) {
     categoryOrder.forEach(category => {
         if (!categories[category] || categories[category].length === 0) return;
         
-        // Create category container
         const categoryDiv = document.createElement('div');
         categoryDiv.className = 'section-category';
         categoryDiv.dataset.category = category;
         
-        // Category header
         const header = document.createElement('div');
         header.className = 'section-category-header';
         header.innerHTML = `
@@ -1040,7 +1537,6 @@ function renderSectionCheckboxes(sections) {
         header.onclick = () => toggleCategory(category);
         categoryDiv.appendChild(header);
         
-        // Section items container
         const itemsDiv = document.createElement('div');
         itemsDiv.className = 'section-items';
         
@@ -1059,7 +1555,7 @@ function renderSectionCheckboxes(sections) {
             const label = document.createElement('label');
             label.htmlFor = `section-${section.index}`;
             label.textContent = section.name;
-            label.title = section.name; // Show full name on hover
+            label.title = section.name;
             
             if (section.originallyCommented) {
                 label.classList.add('originally-commented');
@@ -1158,7 +1654,6 @@ function generate() {
         line.includes('#*# <---------------------- SAVE_CONFIG ---------------------->')
     );
     
-    // Generate includes block
     let includesBlock = generateIncludesBlock();
     
     let output = '';
@@ -1166,7 +1661,6 @@ function generate() {
     let inSaveConfig = false;
     let i = 0;
     
-    // Add includes at the top of the file
     if (includesBlock) {
         output += includesBlock + '\n';
     }
@@ -1184,7 +1678,6 @@ function generate() {
             continue;
         }
         
-        // Skip existing [include] lines - we handle them separately now
         const includeMatch = line.match(/^(\s*#\s*)?\[include\s+[^\]]+\]/i);
         if (includeMatch) {
             i++;
@@ -1238,15 +1731,29 @@ function generate() {
         }
     }
     
-    if (!settings.usesDelta && settings.zMotorCount > 1 && saveConfigStart !== -1) {
+    // Add additional Z motors if needed
+    if (!settings.usesDelta && settings.zMotorCount > 1) {
         let additionalSections = generateAdditionalZMotors(settings, sections);
         
-        const beforeSaveConfig = output.substring(0, output.indexOf('#*# <---------------------- SAVE_CONFIG'));
-        const saveConfigBlock = output.substring(output.indexOf('#*# <---------------------- SAVE_CONFIG'));
-        
-        output = beforeSaveConfig + '\n' + additionalSections + '\n' + saveConfigBlock;
-    } else if (!settings.usesDelta && settings.zMotorCount > 1) {
-        output += '\n' + generateAdditionalZMotors(settings, sections);
+        if (saveConfigStart !== -1) {
+            const beforeSaveConfig = output.substring(0, output.indexOf('#*# <---------------------- SAVE_CONFIG'));
+            const saveConfigBlock = output.substring(output.indexOf('#*# <---------------------- SAVE_CONFIG'));
+            output = beforeSaveConfig + '\n' + additionalSections + '\n' + saveConfigBlock;
+        } else {
+            output += '\n' + additionalSections;
+        }
+    }
+    
+    // Add secondary MCU blocks
+    const secondaryMcuBlock = generateSecondaryMcuBlocks();
+    if (secondaryMcuBlock) {
+        if (saveConfigStart !== -1 && output.includes('#*# <---------------------- SAVE_CONFIG')) {
+            const beforeSaveConfig = output.substring(0, output.indexOf('#*# <---------------------- SAVE_CONFIG'));
+            const saveConfigSection = output.substring(output.indexOf('#*# <---------------------- SAVE_CONFIG'));
+            output = beforeSaveConfig + secondaryMcuBlock + saveConfigSection;
+        } else {
+            output += secondaryMcuBlock;
+        }
     }
     
     document.getElementById('output').value = output;

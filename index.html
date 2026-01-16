@@ -20,11 +20,7 @@
       --border-light: #3a3a55;
     }
     
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
@@ -35,7 +31,6 @@
       flex-direction: column;
     }
     
-    /* Header */
     .header {
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
@@ -46,24 +41,10 @@
       flex-shrink: 0;
     }
     
-    .header h1 {
-      font-size: 1.4rem;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .header h1 { font-size: 1.4rem; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
+    .header h1 span { color: var(--accent); }
+    .header-actions { display: flex; gap: 10px; }
     
-    .header h1 span {
-      color: var(--accent);
-    }
-    
-    .header-actions {
-      display: flex;
-      gap: 10px;
-    }
-    
-    /* Main Layout - 3 columns with larger output panel (~45% width) */
     .main-container {
       flex: 1;
       display: grid;
@@ -73,634 +54,162 @@
       overflow: hidden;
     }
     
-    /* Left Column - Board & Basic Settings */
-    .left-column {
-      background: var(--bg-secondary);
-      border-right: 1px solid var(--border);
-      overflow-y: auto;
-      padding: 16px;
-    }
-    
-    /* Center Column - Config Sections & Includes */
-    .center-column {
-      background: var(--bg-primary);
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    
-    /* Right Column - Output */
-    .right-column {
-      background: var(--bg-secondary);
-      border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    
-    /* Panel styling */
-    .panel {
-      background: var(--bg-tertiary);
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      overflow: hidden;
-    }
-    
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 14px;
-      background: rgba(0,0,0,0.2);
-      border-bottom: 1px solid var(--border);
-    }
-    
-    .panel-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .panel-body {
-      padding: 14px;
-    }
-    
-    .panel-actions {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    
-    .panel-actions button {
-      padding: 3px 8px;
-      font-size: 0.7rem;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    
-    .panel-actions button:hover {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-    
-    /* Form elements */
-    .form-group {
-      margin-bottom: 14px;
-    }
-    
-    .form-group:last-child {
-      margin-bottom: 0;
-    }
-    
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    
-    .form-row-3 {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
-    }
-    
-    label {
-      display: block;
-      margin-bottom: 5px;
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-      font-weight: 500;
-    }
-    
-    select, input[type="text"], input[type="number"] {
-      width: 100%;
-      padding: 8px 10px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      color: var(--text-primary);
-      font-size: 0.9rem;
-    }
-    
-    select:focus, input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    
-    input::placeholder {
-      color: var(--text-secondary);
-      opacity: 0.6;
-    }
-    
-    .hint {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      margin-top: 4px;
-      font-style: italic;
-    }
-    
-    /* Checkbox styling */
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      background: var(--bg-input);
-      border-radius: 5px;
-      cursor: pointer;
-      margin-top: 8px;
-    }
-    
-    .checkbox-row input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--accent);
-    }
-    
-    .checkbox-row label {
-      margin: 0;
-      cursor: pointer;
-      color: var(--text-primary);
-      font-size: 0.85rem;
-    }
-    
-    /* Compact sub-options */
-    .sub-options {
-      margin-top: 10px;
-      padding: 10px;
-      background: var(--bg-input);
-      border-radius: 5px;
-      border: 1px solid var(--border);
-    }
-    
-    .sub-options .form-group {
-      margin-bottom: 8px;
-    }
-    
-    /* Sections Grid - 2 columns of checkboxes */
-    .sections-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      height: 100%;
-      align-content: start;
-    }
-    
-    .section-category {
-      background: var(--bg-tertiary);
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      overflow: hidden;
-    }
-    
-    .section-category-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 10px;
-      background: rgba(0,0,0,0.3);
-      font-weight: 600;
-      font-size: 0.75rem;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      cursor: pointer;
-    }
-    
-    .section-category-header:hover {
-      background: rgba(233, 69, 96, 0.15);
-    }
-    
-    .category-toggle {
-      opacity: 0.6;
-      font-size: 0.9rem;
-    }
-    
-    .section-category-header:hover .category-toggle {
-      opacity: 1;
-    }
-    
-    .section-items {
-      padding: 6px;
-      max-height: 180px;
-      overflow-y: auto;
-    }
-    
-    .section-items::-webkit-scrollbar {
-      width: 6px;
-    }
-    
-    .section-items::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 3px;
-    }
-    
-    .section-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 6px;
-      border-radius: 3px;
-      transition: background 0.1s;
-    }
-    
-    .section-item:hover {
-      background: var(--bg-input);
-    }
-    
-    .section-item input[type="checkbox"] {
-      width: 14px;
-      height: 14px;
-      accent-color: var(--accent);
-      flex-shrink: 0;
-    }
-    
-    .section-item label {
-      margin: 0;
-      font-size: 0.8rem;
-      color: var(--text-primary);
-      cursor: pointer;
-      font-family: 'Consolas', 'Monaco', monospace;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .section-item label.originally-commented {
-      color: var(--text-secondary);
-      font-style: italic;
-    }
-    
-    /* Includes section - horizontal layout */
-    .includes-container {
-      display: grid;
-      grid-template-columns: 1fr 280px;
-      gap: 14px;
-    }
-    
-    .includes-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-content: flex-start;
-      max-height: 120px;
-      overflow-y: auto;
-      padding: 4px;
-    }
-    
-    .includes-empty {
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-      padding: 20px;
-      text-align: center;
-      width: 100%;
-    }
-    
-    .include-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 8px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      font-size: 0.8rem;
-    }
-    
-    .include-item.disabled {
-      opacity: 0.5;
-    }
-    
-    .include-item input[type="checkbox"] {
-      width: 14px;
-      height: 14px;
-      accent-color: var(--success);
-    }
-    
-    .include-name {
-      font-family: 'Consolas', 'Monaco', monospace;
-      color: var(--success);
-      cursor: pointer;
-    }
-    
-    .include-remove {
-      background: none;
-      border: none;
-      color: var(--text-secondary);
-      cursor: pointer;
-      padding: 0 2px;
-      font-size: 1rem;
-      line-height: 1;
-    }
-    
-    .include-remove:hover {
-      color: var(--accent);
-    }
-    
-    .include-add-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    
-    .include-add-panel select,
-    .include-add-panel input {
-      font-size: 0.85rem;
-      padding: 7px 10px;
-    }
-    
-    .include-add-panel .add-btn {
-      padding: 7px 14px;
-      background: var(--accent);
-      border: none;
-      border-radius: 5px;
-      color: white;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    
-    .include-add-panel .add-btn:hover {
-      background: var(--accent-hover);
-    }
-    
-    .include-row {
-      display: flex;
-      gap: 6px;
-    }
-    
-    .include-row input {
-      flex: 1;
-    }
-    
-    /* Output panel */
-    .output-header {
-      padding: 12px 16px;
-      background: rgba(0,0,0,0.2);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .output-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .output-body {
-      flex: 1;
-      padding: 16px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    #output {
-      flex: 1;
-      width: 100%;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: #b8e8b8;
-      font-family: 'Consolas', 'Monaco', 'Fira Code', monospace;
-      font-size: 0.875rem;
-      padding: 16px;
-      resize: none;
-      line-height: 1.6;
-      tab-size: 4;
-    }
-    
-    #output:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    
-    /* Buttons */
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-    
-    .btn-primary:hover {
-      background: var(--accent-hover);
-      transform: translateY(-1px);
-    }
-    
-    .btn-secondary {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
-    
-    .btn-secondary:hover {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-    
-    .btn-sm {
-      padding: 6px 12px;
-      font-size: 0.8rem;
-    }
-    
-    /* File upload */
-    .file-upload-label {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 10px;
-      background: var(--bg-input);
-      border: 2px dashed var(--border);
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      transition: all 0.15s;
-      margin-top: 12px;
-    }
-    
-    .file-upload-label:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    
-    .file-upload-label input[type="file"] {
-      display: none;
-    }
-    
-    #uploadedFileName {
-      display: none;
-      margin-top: 8px;
-      padding: 6px 10px;
-      background: rgba(74, 222, 128, 0.1);
-      border: 1px solid var(--success);
-      border-radius: 4px;
-      font-size: 0.8rem;
-      color: var(--success);
-    }
-    
-    /* Driver warning */
-    .driver-warning, .sensorless-warning {
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-      background: rgba(233, 69, 96, 0.1);
-      border: 1px solid var(--accent);
-      border-radius: 6px;
-      margin-top: 10px;
-    }
-    
-    .warning-icon {
-      font-size: 1.2rem;
-      flex-shrink: 0;
-    }
-    
-    .warning-content {
-      font-size: 0.8rem;
-    }
-    
-    .warning-content strong {
-      color: var(--accent);
-      display: block;
-      margin-bottom: 4px;
-    }
-    
-    .warning-content p {
-      margin: 0;
-      color: var(--text-secondary);
-      line-height: 1.4;
-    }
-    
-    .warning-content code {
-      background: var(--bg-input);
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-family: monospace;
-    }
-    
-    /* Driver count display */
-    .driver-count-display {
-      margin-top: 8px;
-    }
-    
-    .driver-count {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      padding: 8px;
-      background: var(--bg-input);
-      border-radius: 5px;
-      font-size: 0.75rem;
-    }
-    
-    .driver-count.warning {
-      border: 1px solid var(--warning);
-    }
-    
-    .count-label {
-      color: var(--text-secondary);
-    }
-    
-    .count-value {
-      font-weight: 600;
-    }
-    
-    .count-separator {
-      color: var(--border-light);
-    }
-    
+    .left-column { background: var(--bg-secondary); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; }
+    .center-column { background: var(--bg-primary); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .right-column { background: var(--bg-secondary); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    
+    .panel { background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border); overflow: hidden; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border); }
+    .panel-title { font-size: 0.85rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+    .panel-body { padding: 14px; }
+    .panel-actions { display: flex; gap: 6px; align-items: center; }
+    .panel-actions button { padding: 3px 8px; font-size: 0.7rem; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+    .panel-actions button:hover { background: var(--accent); color: white; border-color: var(--accent); }
+    
+    .form-group { margin-bottom: 14px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    
+    label { display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 0.8rem; font-weight: 500; }
+    select, input[type="text"], input[type="number"] { width: 100%; padding: 8px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); font-size: 0.9rem; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); }
+    input::placeholder { color: var(--text-secondary); opacity: 0.6; }
+    .hint { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; font-style: italic; }
+    
+    .checkbox-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg-input); border-radius: 5px; cursor: pointer; margin-top: 8px; }
+    .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+    .checkbox-row label { margin: 0; cursor: pointer; color: var(--text-primary); font-size: 0.85rem; }
+    
+    .sub-options { margin-top: 10px; padding: 10px; background: var(--bg-input); border-radius: 5px; border: 1px solid var(--border); }
+    .sub-options .form-group { margin-bottom: 8px; }
+    
+    .sections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 100%; align-content: start; }
+    .section-category { background: var(--bg-tertiary); border-radius: 6px; border: 1px solid var(--border); overflow: hidden; }
+    .section-category-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: rgba(0,0,0,0.3); font-weight: 600; font-size: 0.75rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.3px; cursor: pointer; }
+    .section-category-header:hover { background: rgba(233, 69, 96, 0.15); }
+    .category-toggle { opacity: 0.6; font-size: 0.9rem; }
+    .section-category-header:hover .category-toggle { opacity: 1; }
+    .section-items { padding: 6px; max-height: 180px; overflow-y: auto; }
+    .section-items::-webkit-scrollbar { width: 6px; }
+    .section-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .section-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 3px; transition: background 0.1s; }
+    .section-item:hover { background: var(--bg-input); }
+    .section-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--accent); flex-shrink: 0; }
+    .section-item label { margin: 0; font-size: 0.8rem; color: var(--text-primary); cursor: pointer; font-family: 'Consolas', 'Monaco', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .section-item label.originally-commented { color: var(--text-secondary); font-style: italic; }
+    
+    .includes-container { display: grid; grid-template-columns: 1fr 280px; gap: 14px; }
+    .includes-list { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; max-height: 120px; overflow-y: auto; padding: 4px; }
+    .includes-empty { color: var(--text-secondary); font-size: 0.8rem; padding: 20px; text-align: center; width: 100%; }
+    .include-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; }
+    .include-item.disabled { opacity: 0.5; }
+    .include-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--success); }
+    .include-name { font-family: 'Consolas', 'Monaco', monospace; color: var(--success); cursor: pointer; }
+    .include-remove { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1; }
+    .include-remove:hover { color: var(--accent); }
+    .include-add-panel { display: flex; flex-direction: column; gap: 8px; }
+    .include-add-panel select, .include-add-panel input { font-size: 0.85rem; padding: 7px 10px; }
+    .include-add-panel .add-btn { padding: 7px 14px; background: var(--accent); border: none; border-radius: 5px; color: white; font-size: 0.8rem; cursor: pointer; transition: background 0.15s; }
+    .include-add-panel .add-btn:hover { background: var(--accent-hover); }
+    .include-row { display: flex; gap: 6px; }
+    .include-row input { flex: 1; }
+    
+    .output-header { padding: 12px 16px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .output-title { font-size: 0.85rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+    .output-body { flex: 1; padding: 16px; overflow: hidden; display: flex; flex-direction: column; }
+    #output { flex: 1; width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color: #b8e8b8; font-family: 'Consolas', 'Monaco', 'Fira Code', monospace; font-size: 0.875rem; padding: 16px; resize: none; line-height: 1.6; tab-size: 4; }
+    #output:focus { outline: none; border-color: var(--accent); }
+    
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--accent); border-color: var(--accent); }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    
+    .file-upload-label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: var(--bg-input); border: 2px dashed var(--border); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-secondary); transition: all 0.15s; margin-top: 12px; }
+    .file-upload-label:hover { border-color: var(--accent); color: var(--accent); }
+    .file-upload-label input[type="file"] { display: none; }
+    #uploadedFileName { display: none; margin-top: 8px; padding: 6px 10px; background: rgba(74, 222, 128, 0.1); border: 1px solid var(--success); border-radius: 4px; font-size: 0.8rem; color: var(--success); }
+    
+    .driver-warning, .sensorless-warning { display: flex; gap: 10px; padding: 10px; background: rgba(233, 69, 96, 0.1); border: 1px solid var(--accent); border-radius: 6px; margin-top: 10px; }
+    .warning-icon { font-size: 1.2rem; flex-shrink: 0; }
+    .warning-content { font-size: 0.8rem; }
+    .warning-content strong { color: var(--accent); display: block; margin-bottom: 4px; }
+    .warning-content p { margin: 0; color: var(--text-secondary); line-height: 1.4; }
+    .warning-content code { background: var(--bg-input); padding: 1px 4px; border-radius: 3px; font-family: monospace; }
+    
+    .driver-count-display { margin-top: 8px; }
+    .driver-count { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--bg-input); border-radius: 5px; font-size: 0.75rem; }
+    .driver-count.warning { border: 1px solid var(--warning); }
+    .count-label { color: var(--text-secondary); }
+    .count-value { font-weight: 600; }
+    .count-separator { color: var(--border-light); }
     .count-ok { color: var(--success); }
     .count-warning { color: var(--accent); }
+    .badge { font-size: 0.7rem; padding: 2px 6px; background: var(--bg-input); border-radius: 10px; color: var(--text-secondary); }
     
-    /* Section count badge */
-    .badge {
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      background: var(--bg-input);
-      border-radius: 10px;
-      color: var(--text-secondary);
-    }
+    /* Secondary MCU Styles */
+    .mcu-list { display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; }
+    .mcu-empty { text-align: center; color: var(--text-secondary); padding: 20px; font-size: 0.85rem; line-height: 1.5; }
+    .mcu-item { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; transition: opacity 0.2s, border-color 0.2s; }
+    .mcu-item:hover { border-color: var(--border-light); }
+    .mcu-item.disabled { opacity: 0.5; }
+    .mcu-item.disabled .mcu-item-body { pointer-events: none; }
+    .mcu-item-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid var(--border); }
+    .mcu-item-title { display: flex; align-items: center; gap: 8px; }
+    .mcu-item-title input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+    .mcu-type-icon { font-size: 1rem; }
+    .mcu-display-name { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+    .mcu-remove-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; padding: 0 4px; line-height: 1; transition: color 0.15s; }
+    .mcu-remove-btn:hover { color: var(--accent); }
+    .mcu-item-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .mcu-field { display: flex; flex-direction: column; gap: 4px; }
+    .mcu-field label { font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
+    .mcu-field input, .mcu-field select { padding: 6px 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem; }
+    .mcu-field input:focus, .mcu-field select:focus { outline: none; border-color: var(--accent); }
+    .mcu-field input[readonly] { opacity: 0.7; cursor: not-allowed; }
+    .mcu-field .hint { font-size: 0.7rem; color: var(--text-secondary); font-style: italic; }
+    .mcu-config-info { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: rgba(0, 0, 0, 0.15); border-radius: 4px; font-size: 0.75rem; }
+    .mcu-config-label { color: var(--text-secondary); }
+    .mcu-config-file { color: var(--success); font-family: 'Consolas', 'Monaco', monospace; }
+    .mcu-add-panel { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .mcu-add-panel select { padding: 8px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); font-size: 0.85rem; cursor: pointer; }
+    .mcu-add-panel select:focus { outline: none; border-color: var(--accent); }
+    .mcu-upload-row { display: flex; gap: 8px; }
+    .mcu-upload { flex: 1; text-align: center; padding: 10px; font-size: 0.8rem; }
+    
+    /* MCU Modal */
+    .mcu-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .mcu-modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; width: 100%; max-width: 500px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
+    .mcu-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--bg-tertiary); border-bottom: 1px solid var(--border); }
+    .mcu-modal-header h3 { margin: 0; font-size: 1.1rem; color: var(--text-primary); }
+    .mcu-modal-close { background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1; transition: color 0.15s; }
+    .mcu-modal-close:hover { color: var(--accent); }
+    .mcu-modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .mcu-modal-description { margin: 0 0 16px 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+    .mcu-modal-body .form-group { margin-bottom: 16px; }
+    .mcu-modal-body label { display: block; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+    .mcu-modal-body input[type="text"] { width: 100%; padding: 10px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); font-size: 0.9rem; }
+    .mcu-modal-body input:focus { outline: none; border-color: var(--accent); }
+    .mcu-modal-body .hint { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; font-style: italic; }
+    .board-select-list { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); font-size: 0.85rem; margin-top: 8px; }
+    .board-select-list option { padding: 8px 10px; }
+    .mcu-modal-divider { display: flex; align-items: center; margin: 16px 0; color: var(--text-secondary); font-size: 0.8rem; }
+    .mcu-modal-divider::before, .mcu-modal-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .mcu-modal-divider span { padding: 0 12px; }
+    .expansion-upload { width: 100%; text-align: center; }
+    .uploaded-file-name { margin-top: 8px; padding: 8px; background: rgba(74, 222, 128, 0.1); border: 1px solid var(--success); border-radius: 4px; color: var(--success); font-size: 0.85rem; display: none; }
+    .mcu-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; background: var(--bg-tertiary); border-top: 1px solid var(--border); }
     
     /* Responsive */
-    @media (max-width: 1400px) {
-      .main-container {
-        grid-template-columns: 280px minmax(350px, 1fr) minmax(400px, 42%);
-      }
-      
-      .sections-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-    
-    @media (max-width: 1100px) {
-      .main-container {
-        grid-template-columns: 260px 1fr;
-        grid-template-rows: 1fr 1fr;
-      }
-      
-      .center-column {
-        grid-row: 1;
-        grid-column: 2;
-      }
-      
-      .right-column {
-        grid-row: 2;
-        grid-column: 1 / -1;
-        border-left: none;
-        border-top: 1px solid var(--border);
-        max-height: 350px;
-      }
-      
-      .includes-container {
-        grid-template-columns: 1fr;
-      }
-    }
-    
-    @media (max-width: 800px) {
-      .main-container {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto 1fr;
-      }
-      
-      .left-column, .center-column, .right-column {
-        border: none;
-        max-height: none;
-      }
-      
-      .right-column {
-        min-height: 300px;
-      }
-    }
+    @media (max-width: 1400px) { .main-container { grid-template-columns: 280px minmax(350px, 1fr) minmax(400px, 42%); } .sections-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) { .main-container { grid-template-columns: 260px 1fr; grid-template-rows: 1fr 1fr; } .center-column { grid-row: 1; grid-column: 2; } .right-column { grid-row: 2; grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); max-height: 350px; } .includes-container { grid-template-columns: 1fr; } }
+    @media (max-width: 800px) { .main-container { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; } .left-column, .center-column, .right-column { border: none; max-height: none; } .right-column { min-height: 300px; } }
   </style>
 </head>
 <body>
-  <!-- Header -->
   <div class="header">
     <h1>🔧 Klipper <span>Config Generator</span></h1>
     <div class="header-actions">
@@ -709,15 +218,10 @@
     </div>
   </div>
   
-  <!-- Main 3-Column Layout -->
   <div class="main-container">
-    <!-- LEFT: Board & Settings -->
     <div class="left-column">
-      <!-- Board Selection -->
       <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">📋 Board Selection</span>
-        </div>
+        <div class="panel-header"><span class="panel-title">📋 Board Selection</span></div>
         <div class="panel-body">
           <div class="form-group">
             <label>Search</label>
@@ -725,9 +229,7 @@
           </div>
           <div class="form-group">
             <label>Board Config</label>
-            <select id="boardSelect" onchange="loadConfigFromRepo(this.value)">
-              <option>Loading...</option>
-            </select>
+            <select id="boardSelect" onchange="loadConfigFromRepo(this.value)"><option>Loading...</option></select>
           </div>
           <label class="file-upload-label">
             <span>📁 Upload custom .cfg</span>
@@ -737,11 +239,8 @@
         </div>
       </div>
       
-      <!-- Kinematics & Dimensions -->
       <div class="panel" style="margin-top: 12px;">
-        <div class="panel-header">
-          <span class="panel-title">⚙️ Printer Setup</span>
-        </div>
+        <div class="panel-header"><span class="panel-title">⚙️ Printer Setup</span></div>
         <div class="panel-body">
           <div class="form-group">
             <label>Kinematics</label>
@@ -757,7 +256,6 @@
             </select>
             <div class="hint" id="kinematicsHint">Y axis moves bed, X moves toolhead</div>
           </div>
-          
           <div class="form-group">
             <label id="bedDimensionsLabel">Bed Size (X / Y / Z mm)</label>
             <div class="form-row-3" id="cartesianDimensions">
@@ -771,7 +269,6 @@
             </div>
             <input type="hidden" id="deltaArmLength" value="270">
           </div>
-          
           <div class="form-row" id="zMotorsGroup">
             <div class="form-group">
               <label>Z Motors</label>
@@ -801,29 +298,19 @@
         </div>
       </div>
       
-      <!-- Endstops -->
       <div class="panel" style="margin-top: 12px;">
-        <div class="panel-header">
-          <span class="panel-title">🎯 Endstops & Homing</span>
-        </div>
+        <div class="panel-header"><span class="panel-title">🎯 Endstops & Homing</span></div>
         <div class="panel-body">
           <div class="form-row" id="xyEndstopOptions">
             <div class="form-group">
               <label>X Endstop</label>
-              <select id="endstopX">
-                <option value="min">Min (0)</option>
-                <option value="max">Max</option>
-              </select>
+              <select id="endstopX"><option value="min">Min (0)</option><option value="max">Max</option></select>
             </div>
             <div class="form-group">
               <label>Y Endstop</label>
-              <select id="endstopY">
-                <option value="min">Min (0)</option>
-                <option value="max">Max</option>
-              </select>
+              <select id="endstopY"><option value="min">Min (0)</option><option value="max">Max</option></select>
             </div>
           </div>
-          
           <div class="form-group">
             <label>Z Endstop Type</label>
             <select id="zEndstopType" onchange="updateZEndstopOptions()">
@@ -832,20 +319,12 @@
               <option value="probe">Probe</option>
             </select>
           </div>
-          
           <div id="probeOffsets" class="sub-options" style="display: none;">
             <div class="form-row">
-              <div class="form-group">
-                <label>Probe X Offset</label>
-                <input type="number" id="probeOffsetX" value="-40">
-              </div>
-              <div class="form-group">
-                <label>Probe Y Offset</label>
-                <input type="number" id="probeOffsetY" value="-10">
-              </div>
+              <div class="form-group"><label>Probe X Offset</label><input type="number" id="probeOffsetX" value="-40"></div>
+              <div class="form-group"><label>Probe Y Offset</label><input type="number" id="probeOffsetY" value="-10"></div>
             </div>
           </div>
-          
           <div class="checkbox-row">
             <input type="checkbox" id="sensorlessXY" onchange="updateSensorlessWarning()">
             <label for="sensorlessXY">Sensorless Homing (X/Y)</label>
@@ -854,9 +333,7 @@
       </div>
     </div>
     
-    <!-- CENTER: Sections & Includes -->
     <div class="center-column">
-      <!-- Config Sections -->
       <div class="panel" style="flex: 1; display: flex; flex-direction: column;">
         <div class="panel-header">
           <span class="panel-title">📦 Config Sections</span>
@@ -868,14 +345,11 @@
         </div>
         <div class="panel-body" style="flex: 1; overflow: hidden;">
           <div class="sections-grid" id="sections-container">
-            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">
-              Select a board to view available sections
-            </div>
+            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">Select a board to view available sections</div>
           </div>
         </div>
       </div>
       
-      <!-- Include Files -->
       <div class="panel">
         <div class="panel-header">
           <span class="panel-title">📎 Include Files</span>
@@ -887,9 +361,7 @@
         </div>
         <div class="panel-body">
           <div class="includes-container">
-            <div class="includes-list" id="includes-list">
-              <div class="includes-empty">No include files added</div>
-            </div>
+            <div class="includes-list" id="includes-list"><div class="includes-empty">No include files added</div></div>
             <div class="include-add-panel">
               <select id="includePresetSelect" onchange="handleIncludePresetSelect(this)">
                 <option value="">+ Add common include...</option>
@@ -899,11 +371,9 @@
                 <option value="timelapse.cfg">timelapse.cfg</option>
                 <option value="KAMP_Settings.cfg">KAMP_Settings.cfg</option>
                 <option value="klipperscreen.cfg">klipperscreen.cfg</option>
-                <option value="crowsnest.conf">crowsnest.conf</option>
                 <option value="adxl.cfg">adxl.cfg</option>
                 <option value="ebb36.cfg">ebb36.cfg</option>
                 <option value="ebb42.cfg">ebb42.cfg</option>
-                <option value="stealthburner_leds.cfg">stealthburner_leds.cfg</option>
               </select>
               <div class="include-row">
                 <input type="text" id="customIncludeInput" placeholder="custom.cfg" onkeypress="handleCustomIncludeKeypress(event)">
@@ -913,9 +383,46 @@
           </div>
         </div>
       </div>
+      
+      <!-- Secondary MCUs Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🔌 Secondary MCUs</span>
+          <div class="panel-actions"><span class="badge" id="secondaryMcuCount">0</span></div>
+        </div>
+        <div class="panel-body">
+          <div class="mcu-list" id="secondary-mcu-list">
+            <div class="mcu-empty">No secondary MCUs added. Use the options below to add toolhead boards, expansion boards, or host MCU.</div>
+          </div>
+          <div class="mcu-add-panel">
+            <select id="mcuPresetSelect" onchange="handleSecondaryMcuPresetSelect(this)">
+              <option value="">+ Add Secondary MCU...</option>
+              <optgroup label="CAN Toolhead Boards">
+                <option value="ebb36-v1.2">BTT EBB36 v1.2</option>
+                <option value="ebb42-v1.2">BTT EBB42 v1.2</option>
+                <option value="ebb36-v1.1">BTT EBB36 v1.1</option>
+                <option value="sht36">Mellow SHT36/42</option>
+                <option value="duet-1lc">Duet3 1LC</option>
+              </optgroup>
+              <optgroup label="Expansion Boards">
+                <option value="expansion">🔧 Add Expansion Board...</option>
+              </optgroup>
+              <optgroup label="Host / Other">
+                <option value="rpi">Raspberry Pi (Host MCU)</option>
+                <option value="mmu">MMU/ERCF Board</option>
+              </optgroup>
+            </select>
+            <div class="mcu-upload-row">
+              <label class="file-upload-label mcu-upload">
+                <span>📁 Upload board config</span>
+                <input type="file" accept=".cfg" onchange="handleSecondaryMcuUpload(event)">
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     
-    <!-- RIGHT: Output -->
     <div class="right-column">
       <div class="output-header">
         <span class="output-title">📄 printer.cfg</span>
