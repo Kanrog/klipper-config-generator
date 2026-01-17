@@ -2970,7 +2970,7 @@ function generate() {
     output += '#                                                        #\n';
     output += '#  USE AT YOUR OWN RISK                                  #\n';
     output += '#  Always review and test your config carefully!         #\n';
-    output += '########################################################\n\n';
+    output += '##########################################################\n\n';
     
     if (includesBlock) {
         output += includesBlock + '\n';
