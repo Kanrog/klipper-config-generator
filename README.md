@@ -58,7 +58,7 @@ This is meant as a tool to _simplify_ the klipper experience.
 
 ## Roadmap
 
-The goal is to create a tool that generates complete, working configs that require no manual editing. Here are planned features and ideas for the future:
+Here are planned features and ideas for the future:
 
 ### Short Term
 - [ ] More base configs for popular motherboards
