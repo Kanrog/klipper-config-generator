@@ -151,7 +151,11 @@
     .badge { font-size: 0.7rem; padding: 2px 6px; background: var(--bg-input); border-radius: 10px; color: var(--text-secondary); }
     
     /* Secondary MCU Styles */
-    .mcu-list { display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; }
+    .mcu-panel { display: flex; flex-direction: column; }
+    .mcu-panel-body { max-height: 55vh; overflow-y: auto; }
+    .mcu-panel-body::-webkit-scrollbar { width: 6px; }
+    .mcu-panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .mcu-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
     .mcu-empty { text-align: center; color: var(--text-secondary); padding: 20px; font-size: 0.85rem; line-height: 1.5; }
     .mcu-item { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; transition: opacity 0.2s, border-color 0.2s; }
     .mcu-item:hover { border-color: var(--border-light); }
@@ -406,12 +410,12 @@
       </div>
       
       <!-- Secondary MCUs Panel -->
-      <div class="panel">
+      <div class="panel mcu-panel">
         <div class="panel-header">
           <span class="panel-title">🔌 Secondary MCUs</span>
           <div class="panel-actions"><span class="badge" id="secondaryMcuCount">0</span></div>
         </div>
-        <div class="panel-body">
+        <div class="panel-body mcu-panel-body">
           <div class="mcu-list" id="secondary-mcu-list">
             <div class="mcu-empty">No secondary MCUs added. Use the options below to add toolhead boards, expansion boards, or host MCU.</div>
           </div>
