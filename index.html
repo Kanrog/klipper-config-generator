@@ -151,7 +151,7 @@
     .badge { font-size: 0.7rem; padding: 2px 6px; background: var(--bg-input); border-radius: 10px; color: var(--text-secondary); }
     
     /* Secondary MCU Styles */
-    .mcu-list { display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; }
+    .mcu-list { display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; }
     .mcu-empty { text-align: center; color: var(--text-secondary); padding: 20px; font-size: 0.85rem; line-height: 1.5; }
     .mcu-item { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; transition: opacity 0.2s, border-color 0.2s; }
     .mcu-item:hover { border-color: var(--border-light); }
@@ -174,6 +174,27 @@
     .mcu-config-info { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: rgba(0, 0, 0, 0.15); border-radius: 4px; font-size: 0.75rem; }
     .mcu-config-label { color: var(--text-secondary); }
     .mcu-config-file { color: var(--success); font-family: 'Consolas', 'Monaco', monospace; }
+    
+    /* MCU Functions Panel */
+    .mcu-functions-panel { margin-top: 10px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: rgba(0,0,0,0.1); }
+    .mcu-functions-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0,0,0,0.2); cursor: pointer; transition: background 0.15s; }
+    .mcu-functions-header:hover { background: rgba(233, 69, 96, 0.1); }
+    .mcu-functions-title { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+    .mcu-functions-summary { font-size: 0.85rem; }
+    .mcu-func-none { color: var(--text-secondary); font-style: italic; font-size: 0.75rem; }
+    .mcu-functions-toggle { color: var(--text-secondary); font-size: 0.7rem; }
+    .mcu-functions-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+    .mcu-func-category { background: var(--bg-secondary); border-radius: 5px; padding: 8px; }
+    .mcu-func-category-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .mcu-func-icon { font-size: 0.9rem; }
+    .mcu-func-label { font-size: 0.75rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.3px; }
+    .mcu-func-options { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mcu-func-option { display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; }
+    .mcu-func-option:hover { border-color: var(--accent); }
+    .mcu-func-option input[type="checkbox"] { width: 12px; height: 12px; accent-color: var(--success); margin: 0; }
+    .mcu-func-option input[type="checkbox"]:checked + span { color: var(--success); }
+    .mcu-func-option span { color: var(--text-secondary); }
+    
     .mcu-add-panel { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
     .mcu-add-panel select { padding: 8px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); font-size: 0.85rem; cursor: pointer; }
     .mcu-add-panel select:focus { outline: none; border-color: var(--accent); }
