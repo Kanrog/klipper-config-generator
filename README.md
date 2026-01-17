@@ -1,5 +1,4 @@
-# Fairline (working title)
-Chart a smooth course for your Klipper setup.
+![Fairline Logo](path/to/your/fairline_logo.png)
 
 ---
 
