@@ -2962,6 +2962,16 @@ function generate() {
     let sectionHandledBySecondaryMcu = false;
     let i = 0;
     
+    // Add disclaimer header
+    output += '##########################################################\n';
+    output += '#  Made with Fairline Klipper Config Generator           #\n';
+    output += '#  by Kanrog Creations                                   #\n';
+    output += '#  https://github.com/Kanrog/klipper-config-generator    #\n';
+    output += '#                                                        #\n';
+    output += '#  USE AT YOUR OWN RISK                                  #\n';
+    output += '#  Always review and test your config carefully!         #\n';
+    output += '########################################################\n\n';
+    
     if (includesBlock) {
         output += includesBlock + '\n';
     }
