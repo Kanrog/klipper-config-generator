@@ -76,6 +76,7 @@ The goal is to create a tool that generates complete, working configs that requi
 - [ ] Macro library (start/end gcode, pause/resume, etc.)
 - [ ] Validation warnings for incompatible settings
 - [x] Integrated editor for manual changes before download 
+- [ ] Fan output control
 
 ### Long Term
 - [ ] Community config database - users can upload and share their working configs
@@ -86,7 +87,7 @@ The goal is to create a tool that generates complete, working configs that requi
 ### Ideas / Maybe
 - [ ] Visual pin mapping diagram
 - [ ] Integration with CANbus toolhead configs
-- [ ] Multi-MCU support
+- [x] Multi-MCU support
 - [ ] Built-in documentation links for each section
 
 ---

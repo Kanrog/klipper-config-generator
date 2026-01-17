@@ -236,6 +236,22 @@
     @media (max-width: 1400px) { .main-container { grid-template-columns: 280px minmax(350px, 1fr) minmax(400px, 42%); } .sections-grid { grid-template-columns: 1fr; } }
     @media (max-width: 1100px) { .main-container { grid-template-columns: 260px 1fr; grid-template-rows: 1fr 1fr; } .center-column { grid-row: 1; grid-column: 2; } .right-column { grid-row: 2; grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border); max-height: 350px; } .includes-container { grid-template-columns: 1fr; } }
     @media (max-width: 800px) { .main-container { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; } .left-column, .center-column, .right-column { border: none; max-height: none; } .right-column { min-height: 300px; } .header-brand { gap: 8px; } .header-logo { height: 28px; } .header h1 { font-size: 1.1rem; } }
+    
+    /* Disclaimer Modal */
+    .disclaimer-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+    .disclaimer-modal { background: var(--bg-secondary); border: 2px solid var(--accent); border-radius: 12px; width: 100%; max-width: 500px; overflow: hidden; box-shadow: 0 10px 40px rgba(233, 69, 96, 0.3); }
+    .disclaimer-modal-header { display: flex; align-items: center; gap: 12px; padding: 20px; background: rgba(233, 69, 96, 0.15); border-bottom: 1px solid var(--border); }
+    .disclaimer-modal-header .warning-icon { font-size: 2rem; }
+    .disclaimer-modal-header h3 { margin: 0; font-size: 1.3rem; color: var(--accent); }
+    .disclaimer-modal-body { padding: 20px; }
+    .disclaimer-modal-body p { margin: 0 0 15px 0; color: var(--text-primary); line-height: 1.6; font-size: 0.95rem; }
+    .disclaimer-modal-body ul { margin: 0 0 15px 0; padding-left: 20px; color: var(--text-secondary); }
+    .disclaimer-modal-body ul li { margin-bottom: 8px; line-height: 1.5; }
+    .disclaimer-modal-body .highlight { color: var(--accent); font-weight: 600; }
+    .disclaimer-modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; background: var(--bg-tertiary); border-top: 1px solid var(--border); }
+    .disclaimer-checkbox { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 12px; background: var(--bg-input); border-radius: 6px; cursor: pointer; }
+    .disclaimer-checkbox input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .disclaimer-checkbox label { margin: 0; cursor: pointer; color: var(--text-primary); font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -245,11 +261,11 @@
       <h1>🔧 Klipper <span>Config Generator</span></h1>
     </div>
     <div class="header-actions">
-      <a href="https://github.com/your-username/your-repo" target="_blank" rel="noopener noreferrer" class="btn btn-secondary github-link">
+      <a href="https://github.com/Kanrog/klipper-config-generator" target="_blank" rel="noopener noreferrer" class="btn btn-secondary github-link">
         <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub
       </a>
-      <button class="btn btn-primary" onclick="generate()">⚡ Generate</button>
+      <button class="btn btn-primary" onclick="showDisclaimerModal()">⚡ Generate</button>
       <button class="btn btn-secondary" onclick="download()">💾 Download</button>
     </div>
   </div>
@@ -471,5 +487,81 @@
   </div>
   
   <script src="app.js"></script>
+  
+  <!-- Disclaimer Modal -->
+  <div id="disclaimerModal" class="disclaimer-modal-overlay" style="display: none;">
+    <div class="disclaimer-modal">
+      <div class="disclaimer-modal-header">
+        <span class="warning-icon">⚠️</span>
+        <h3>Use At Your Own Risk</h3>
+      </div>
+      <div class="disclaimer-modal-body">
+        <p>This tool generates Klipper configuration files based on your selections. <span class="highlight">Please review the generated config carefully before using it on your printer.</span></p>
+        <p>By proceeding, you acknowledge that:</p>
+        <ul>
+          <li>Incorrect configurations can damage your printer or cause safety hazards</li>
+          <li>You are responsible for verifying all settings, especially stepper directions, temperatures, and limits</li>
+          <li>The authors of this tool are not liable for any damage resulting from its use</li>
+          <li>You should always have a fire extinguisher nearby when testing new configurations</li>
+        </ul>
+        <div class="disclaimer-checkbox">
+          <input type="checkbox" id="disclaimerAccepted">
+          <label for="disclaimerAccepted">I understand and accept the risks</label>
+        </div>
+      </div>
+      <div class="disclaimer-modal-footer">
+        <button class="btn btn-secondary" onclick="closeDisclaimerModal()">Cancel</button>
+        <button class="btn btn-primary" id="generateConfirmBtn" onclick="confirmGenerate()" disabled>⚡ Generate Config</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Check if user has previously accepted disclaimer in this session
+    let disclaimerAcceptedSession = false;
+    
+    function showDisclaimerModal() {
+      // If already accepted in this session, generate directly
+      if (disclaimerAcceptedSession) {
+        generate();
+        return;
+      }
+      
+      document.getElementById('disclaimerModal').style.display = 'flex';
+      document.getElementById('disclaimerAccepted').checked = false;
+      document.getElementById('generateConfirmBtn').disabled = true;
+    }
+    
+    function closeDisclaimerModal() {
+      document.getElementById('disclaimerModal').style.display = 'none';
+    }
+    
+    function confirmGenerate() {
+      if (document.getElementById('disclaimerAccepted').checked) {
+        disclaimerAcceptedSession = true;
+        closeDisclaimerModal();
+        generate();
+      }
+    }
+    
+    // Enable/disable generate button based on checkbox
+    document.getElementById('disclaimerAccepted').addEventListener('change', function() {
+      document.getElementById('generateConfirmBtn').disabled = !this.checked;
+    });
+    
+    // Close modal on overlay click
+    document.getElementById('disclaimerModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeDisclaimerModal();
+      }
+    });
+    
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeDisclaimerModal();
+      }
+    });
+  </script>
 </body>
 </html>
