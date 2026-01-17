@@ -1,4 +1,4 @@
-![Fairline Logo](path/to/your/fairline_logo.png)
+![Fairline Logo](fairline_logo.png)
 
 ---
 
