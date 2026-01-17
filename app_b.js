@@ -592,7 +592,8 @@ function handleSecondaryMcuUpload(event) {
             configData: configText,
             enabled: true,
             isCustomUpload: true,
-            functions: {}  // Empty functions - user will configure
+            functions: {},  // Empty functions - user will configure
+            parsedSections: parseSecondaryMcuSections(configText)  // Parse immediately
         };
         
         window.currentConfigData.secondaryMcus.push(mcu);
@@ -616,9 +617,198 @@ async function loadSecondaryMcuConfig(mcu) {
         const configText = await response.text();
         mcu.configData = configText;
         
+        // Parse the config to extract sections and pin mappings
+        mcu.parsedSections = parseSecondaryMcuSections(configText);
+        
         renderSecondaryMcusUI();
     } catch (error) {
         console.error('Error loading secondary MCU config:', error);
+    }
+}
+
+/**
+ * Parse a secondary MCU's config file into sections with their content
+ */
+function parseSecondaryMcuSections(configText) {
+    if (!configText) return {};
+    
+    const sections = {};
+    const lines = configText.split('\n');
+    let currentSection = null;
+    let currentContent = [];
+    
+    for (const line of lines) {
+        // Check for section header (including commented ones)
+        const sectionMatch = line.match(/^#*\s*\[([^\]]+)\]/);
+        
+        if (sectionMatch) {
+            // Save previous section
+            if (currentSection) {
+                sections[currentSection.toLowerCase()] = {
+                    name: currentSection,
+                    content: currentContent.join('\n'),
+                    pins: extractPinsFromContent(currentContent.join('\n'))
+                };
+            }
+            
+            currentSection = sectionMatch[1].trim();
+            currentContent = [line];
+        } else if (currentSection) {
+            currentContent.push(line);
+        }
+    }
+    
+    // Save last section
+    if (currentSection) {
+        sections[currentSection.toLowerCase()] = {
+            name: currentSection,
+            content: currentContent.join('\n'),
+            pins: extractPinsFromContent(currentContent.join('\n'))
+        };
+    }
+    
+    return sections;
+}
+
+/**
+ * Extract pin definitions from a section's content
+ */
+function extractPinsFromContent(content) {
+    const pins = {};
+    const pinPatterns = [
+        /^#*\s*(step_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(dir_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(enable_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(uart_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(cs_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(heater_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(sensor_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(pin):\s*([^\s#]+)/gm,
+        /^#*\s*(sensor_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(control_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(diag_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(endstop_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(spi_software_sclk_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(spi_software_mosi_pin):\s*([^\s#]+)/gm,
+        /^#*\s*(spi_software_miso_pin):\s*([^\s#]+)/gm,
+    ];
+    
+    for (const pattern of pinPatterns) {
+        let match;
+        // Reset pattern lastIndex
+        pattern.lastIndex = 0;
+        while ((match = pattern.exec(content)) !== null) {
+            const pinName = match[1];
+            let pinValue = match[2];
+            // Remove any existing MCU prefix for generic configs
+            if (pinValue.includes(':')) {
+                pinValue = pinValue.split(':')[1];
+            }
+            pins[pinName] = pinValue;
+        }
+    }
+    
+    return pins;
+}
+
+/**
+ * Get pins for a specific stepper driver slot from the secondary MCU's board config
+ * Maps generic stepper slots (E0, E1, X, Y, Z, etc.) to the requested function
+ */
+function getSecondaryMcuStepperPins(mcu, requestedStepper, slotIndex) {
+    if (!mcu.parsedSections) {
+        // Try to parse if not already done
+        if (mcu.configData) {
+            mcu.parsedSections = parseSecondaryMcuSections(mcu.configData);
+        } else {
+            return null;
+        }
+    }
+    
+    const sections = mcu.parsedSections;
+    
+    // Priority order for finding stepper pins based on what's typically available
+    // For expansion boards used for Z motors, we often use the extruder slots or dedicated stepper slots
+    const stepperSlotPriority = [
+        // Try to match exact name first
+        `stepper_${requestedStepper.replace('stepper_', '')}`,
+        // For additional Z steppers, look at extruder slots which are often repurposed
+        'extruder',
+        'extruder1', 
+        'stepper_z',
+        'stepper_z1',
+        'stepper_z2',
+        'stepper_z3',
+        'stepper_x',
+        'stepper_y',
+        'stepper_e',
+        'stepper_e0',
+        'stepper_e1',
+    ];
+    
+    // Track which slots we've already used
+    if (!mcu._usedSlots) {
+        mcu._usedSlots = new Set();
+    }
+    
+    // Find an available slot
+    for (const slotName of stepperSlotPriority) {
+        const sectionKey = slotName.toLowerCase();
+        if (sections[sectionKey] && !mcu._usedSlots.has(sectionKey)) {
+            const section = sections[sectionKey];
+            if (section.pins && section.pins.step_pin) {
+                mcu._usedSlots.add(sectionKey);
+                
+                // Also look for the matching TMC section
+                let tmcPins = null;
+                for (const key of Object.keys(sections)) {
+                    if (key.startsWith('tmc') && key.includes(slotName.replace('stepper_', ''))) {
+                        tmcPins = sections[key].pins;
+                        break;
+                    }
+                }
+                
+                return {
+                    stepperPins: section.pins,
+                    tmcPins: tmcPins,
+                    sourceSlot: slotName
+                };
+            }
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Get pins for a specific function from the secondary MCU's board config
+ */
+function getSecondaryMcuPins(mcu, sectionName) {
+    if (!mcu.parsedSections) {
+        if (mcu.configData) {
+            mcu.parsedSections = parseSecondaryMcuSections(mcu.configData);
+        } else {
+            return null;
+        }
+    }
+    
+    const sections = mcu.parsedSections;
+    const key = sectionName.toLowerCase();
+    
+    if (sections[key]) {
+        return sections[key].pins;
+    }
+    
+    return null;
+}
+
+/**
+ * Reset used slots tracking (call before generating config)
+ */
+function resetSecondaryMcuSlotTracking() {
+    const mcus = window.currentConfigData.secondaryMcus || [];
+    for (const mcu of mcus) {
+        mcu._usedSlots = new Set();
     }
 }
 
@@ -827,6 +1017,9 @@ async function confirmExpansionBoard() {
             mcu.displayName = `📁 ${file.name}`;
             mcu.isCustomUpload = true;
             
+            // Parse the config to extract pin mappings
+            mcu.parsedSections = parseSecondaryMcuSections(mcu.configData);
+            
             window.currentConfigData.secondaryMcus.push(mcu);
             renderSecondaryMcusUI();
             closeExpansionBoardModal();
@@ -854,6 +1047,9 @@ async function confirmExpansionBoard() {
         mcu.configData = configText;
         mcu.configFile = selectedBoard;
         mcu.displayName = selectedBoard.replace('generic-', '').replace('.cfg', '').replace(/-/g, ' ').toUpperCase();
+        
+        // Parse the config to extract pin mappings
+        mcu.parsedSections = parseSecondaryMcuSections(configText);
         
         window.currentConfigData.secondaryMcus.push(mcu);
         renderSecondaryMcusUI();
@@ -1132,6 +1328,16 @@ function generateSecondaryMcuBlocks() {
         return '';
     }
     
+    // Reset slot tracking for all MCUs before generating
+    resetSecondaryMcuSlotTracking();
+    
+    // Ensure all MCUs have their configs parsed
+    for (const mcu of mcus) {
+        if (mcu.configData && !mcu.parsedSections) {
+            mcu.parsedSections = parseSecondaryMcuSections(mcu.configData);
+        }
+    }
+    
     let output = '\n#=====================================#\n';
     output += '#       SECONDARY MCU CONFIGS         #\n';
     output += '#=====================================#\n\n';
@@ -1175,7 +1381,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.steppers && functions.steppers.length > 0) {
         output += `# ---- Steppers on ${prefix} ----\n`;
         for (const stepper of functions.steppers) {
-            output += generateStepperSection(stepper, prefix);
+            output += generateStepperSection(stepper, mcu);
         }
     }
     
@@ -1183,7 +1389,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.heaters && functions.heaters.length > 0) {
         output += `# ---- Heaters on ${prefix} ----\n`;
         for (const heater of functions.heaters) {
-            output += generateHeaterSection(heater, prefix);
+            output += generateHeaterSection(heater, mcu);
         }
     }
     
@@ -1191,7 +1397,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.fans && functions.fans.length > 0) {
         output += `# ---- Fans on ${prefix} ----\n`;
         for (const fan of functions.fans) {
-            output += generateFanSection(fan, prefix);
+            output += generateFanSection(fan, mcu);
         }
     }
     
@@ -1199,7 +1405,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.sensors && functions.sensors.length > 0) {
         output += `# ---- Temperature Sensors on ${prefix} ----\n`;
         for (const sensor of functions.sensors) {
-            output += generateSensorSection(sensor, prefix);
+            output += generateSensorSection(sensor, mcu);
         }
     }
     
@@ -1207,7 +1413,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.probing && functions.probing.length > 0) {
         output += `# ---- Probing on ${prefix} ----\n`;
         for (const probe of functions.probing) {
-            output += generateProbeSection(probe, prefix);
+            output += generateProbeSection(probe, mcu);
         }
     }
     
@@ -1215,7 +1421,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.leds && functions.leds.length > 0) {
         output += `# ---- LEDs on ${prefix} ----\n`;
         for (const led of functions.leds) {
-            output += generateLedSection(led, prefix);
+            output += generateLedSection(led, mcu);
         }
     }
     
@@ -1223,7 +1429,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.accelerometer && functions.accelerometer.length > 0) {
         output += `# ---- Accelerometer on ${prefix} ----\n`;
         for (const accel of functions.accelerometer) {
-            output += generateAccelerometerSection(accel, prefix);
+            output += generateAccelerometerSection(accel, mcu);
         }
     }
     
@@ -1231,7 +1437,7 @@ function generateMcuFunctionSections(mcu) {
     if (functions.filament && functions.filament.length > 0) {
         output += `# ---- Filament Sensors on ${prefix} ----\n`;
         for (const sensor of functions.filament) {
-            output += generateFilamentSensorSection(sensor, prefix);
+            output += generateFilamentSensorSection(sensor, mcu);
         }
     }
     
@@ -1239,15 +1445,16 @@ function generateMcuFunctionSections(mcu) {
     if (functions.gpio && functions.gpio.length > 0) {
         output += `# ---- GPIO on ${prefix} ----\n`;
         for (const gpio of functions.gpio) {
-            output += generateGpioSection(gpio, prefix);
+            output += generateGpioSection(gpio, mcu);
         }
     }
     
     return output;
 }
 
-function generateStepperSection(stepper, prefix) {
-    const settings = window.currentConfigData?.defaultValues || {};
+function generateStepperSection(stepper, mcu) {
+    const prefix = mcu.name;
+    const mainConfig = window.currentConfigData;
     
     // Map stepper names to Klipper section names
     const stepperMap = {
@@ -1263,43 +1470,125 @@ function generateStepperSection(stepper, prefix) {
     
     const sectionName = stepperMap[stepper] || stepper;
     
+    // Try to get pins from the secondary MCU's board config
+    const pinData = getSecondaryMcuStepperPins(mcu, stepper, 0);
+    
+    // Get default values from main config if available (for rotation_distance, etc.)
+    let rotationDistance = '40';
+    let microsteps = '16';
+    let runCurrent = '0.800';
+    
+    // Try to get settings from main board's Z stepper for Z motors
+    if (stepper.startsWith('stepper_z') && mainConfig.sections) {
+        const mainZ = mainConfig.sections.find(s => s.name.toLowerCase() === 'stepper_z');
+        if (mainZ && mainZ.content) {
+            const rotMatch = mainZ.content.match(/rotation_distance:\s*([\d.]+)/);
+            if (rotMatch) rotationDistance = rotMatch[1];
+            const microMatch = mainZ.content.match(/microsteps:\s*(\d+)/);
+            if (microMatch) microsteps = microMatch[1];
+        }
+        // Get run_current from TMC section
+        const mainTmc = mainConfig.sections.find(s => s.name.toLowerCase().includes('tmc') && s.name.toLowerCase().includes('stepper_z'));
+        if (mainTmc && mainTmc.content) {
+            const currentMatch = mainTmc.content.match(/run_current:\s*([\d.]+)/);
+            if (currentMatch) runCurrent = currentMatch[1];
+        }
+    }
+    
+    // Determine pin values
+    let stepPin, dirPin, enablePin, uartPin;
+    
+    if (pinData && pinData.stepperPins) {
+        stepPin = `${prefix}:${pinData.stepperPins.step_pin || 'CHANGE_ME'}`;
+        dirPin = `${prefix}:${pinData.stepperPins.dir_pin || 'CHANGE_ME'}`;
+        enablePin = pinData.stepperPins.enable_pin || 'CHANGE_ME';
+        // Handle enable pin polarity (usually inverted)
+        if (!enablePin.startsWith('!') && !enablePin.startsWith('^')) {
+            enablePin = `!${prefix}:${enablePin}`;
+        } else {
+            enablePin = `${prefix}:${enablePin}`;
+        }
+        
+        if (pinData.tmcPins) {
+            uartPin = `${prefix}:${pinData.tmcPins.uart_pin || 'CHANGE_ME'}`;
+        } else {
+            uartPin = `${prefix}:CHANGE_ME`;
+        }
+    } else {
+        stepPin = `${prefix}:CHANGE_ME`;
+        dirPin = `${prefix}:CHANGE_ME`;
+        enablePin = `!${prefix}:CHANGE_ME`;
+        uartPin = `${prefix}:CHANGE_ME`;
+    }
+    
     let output = `[${sectionName}]\n`;
-    output += `step_pin: ${prefix}:CHANGE_ME\n`;
-    output += `dir_pin: ${prefix}:CHANGE_ME\n`;
-    output += `enable_pin: !${prefix}:CHANGE_ME\n`;
-    output += `microsteps: 16\n`;
+    output += `step_pin: ${stepPin}\n`;
+    output += `dir_pin: ${dirPin}\n`;
+    output += `enable_pin: ${enablePin}\n`;
+    output += `microsteps: ${microsteps}\n`;
     
     if (stepper === 'extruder' || stepper === 'extruder1') {
         output += `rotation_distance: 22.6789511  # Calibrate this!\n`;
         output += `nozzle_diameter: 0.400\n`;
         output += `filament_diameter: 1.750\n`;
         output += `max_extrude_only_distance: 100.0\n`;
+        runCurrent = '0.650';
     } else {
-        output += `rotation_distance: 40  # Adjust for your setup\n`;
+        output += `rotation_distance: ${rotationDistance}\n`;
+    }
+    
+    // Add position settings for non-additional Z steppers
+    if (stepper === 'stepper_z') {
+        const bedZ = mainConfig.defaultValues?.bedZ || 250;
+        output += `endstop_pin: CHANGE_ME  # Or use probe:z_virtual_endstop\n`;
+        output += `position_max: ${bedZ}\n`;
+        output += `position_min: -5\n`;
+        output += `homing_speed: 8\n`;
     }
     
     output += `\n`;
     
     // Add TMC section for the stepper
     output += `[tmc2209 ${sectionName}]\n`;
-    output += `uart_pin: ${prefix}:CHANGE_ME\n`;
-    if (stepper === 'extruder' || stepper === 'extruder1') {
-        output += `run_current: 0.650\n`;
-    } else {
-        output += `run_current: 0.800\n`;
+    output += `uart_pin: ${uartPin}\n`;
+    output += `run_current: ${runCurrent}\n`;
+    output += `stealthchop_threshold: 999999\n`;
+    
+    // Add source comment if we found pins
+    if (pinData && pinData.sourceSlot) {
+        output += `# Pins from ${mcu.configFile || 'board config'} ${pinData.sourceSlot} slot\n`;
     }
-    output += `stealthchop_threshold: 999999\n\n`;
+    
+    output += `\n`;
     
     return output;
 }
 
-function generateHeaterSection(heater, prefix) {
+function generateHeaterSection(heater, mcu) {
+    const prefix = mcu.name;
+    
+    // Try to get heater pins from board config
+    let heaterPin = `${prefix}:CHANGE_ME`;
+    let sensorPin = `${prefix}:CHANGE_ME`;
+    
+    if (mcu.parsedSections) {
+        if (heater === 'hotend' && mcu.parsedSections['extruder']) {
+            const pins = mcu.parsedSections['extruder'].pins;
+            if (pins.heater_pin) heaterPin = `${prefix}:${pins.heater_pin}`;
+            if (pins.sensor_pin) sensorPin = `${prefix}:${pins.sensor_pin}`;
+        } else if (heater === 'heater_bed' && mcu.parsedSections['heater_bed']) {
+            const pins = mcu.parsedSections['heater_bed'].pins;
+            if (pins.heater_pin) heaterPin = `${prefix}:${pins.heater_pin}`;
+            if (pins.sensor_pin) sensorPin = `${prefix}:${pins.sensor_pin}`;
+        }
+    }
+    
     if (heater === 'hotend') {
         return `[extruder]
 # Hotend heater on ${prefix}
-heater_pin: ${prefix}:CHANGE_ME
+heater_pin: ${heaterPin}
 sensor_type: EPCOS 100K B57560G104F
-sensor_pin: ${prefix}:CHANGE_ME
+sensor_pin: ${sensorPin}
 control: pid
 pid_Kp: 21.527
 pid_Ki: 1.063
@@ -1311,9 +1600,9 @@ max_temp: 280
     } else if (heater === 'heater_bed') {
         return `[heater_bed]
 # Heated bed on ${prefix}
-heater_pin: ${prefix}:CHANGE_ME
+heater_pin: ${heaterPin}
 sensor_type: Generic 3950
-sensor_pin: ${prefix}:CHANGE_ME
+sensor_pin: ${sensorPin}
 control: pid
 pid_Kp: 54.027
 pid_Ki: 0.770
@@ -1325,9 +1614,9 @@ max_temp: 130
     } else if (heater === 'heater_chamber') {
         return `[heater_generic chamber_heater]
 # Chamber heater on ${prefix}
-heater_pin: ${prefix}:CHANGE_ME
+heater_pin: ${heaterPin}
 sensor_type: Generic 3950
-sensor_pin: ${prefix}:CHANGE_ME
+sensor_pin: ${sensorPin}
 control: watermark
 max_delta: 2.0
 min_temp: 0
@@ -1338,16 +1627,34 @@ max_temp: 70
     return '';
 }
 
-function generateFanSection(fan, prefix) {
+function generateFanSection(fan, mcu) {
+    const prefix = mcu.name;
+    
+    // Try to get fan pins from board config
+    let fanPin = `${prefix}:CHANGE_ME`;
+    
+    if (mcu.parsedSections) {
+        if (fan === 'part_fan' && mcu.parsedSections['fan']) {
+            const pins = mcu.parsedSections['fan'].pins;
+            if (pins.pin) fanPin = `${prefix}:${pins.pin}`;
+        } else if (fan === 'hotend_fan' && mcu.parsedSections['heater_fan hotend_fan']) {
+            const pins = mcu.parsedSections['heater_fan hotend_fan'].pins;
+            if (pins.pin) fanPin = `${prefix}:${pins.pin}`;
+        } else if (mcu.parsedSections['fan_generic']) {
+            const pins = mcu.parsedSections['fan_generic'].pins;
+            if (pins.pin) fanPin = `${prefix}:${pins.pin}`;
+        }
+    }
+
     const fanConfigs = {
         'part_fan': `[fan]
 # Part cooling fan on ${prefix}
-pin: ${prefix}:CHANGE_ME
+pin: ${fanPin}
 
 `,
         'hotend_fan': `[heater_fan hotend_fan]
 # Hotend cooling fan on ${prefix}
-pin: ${prefix}:CHANGE_ME
+pin: ${fanPin}
 heater: extruder
 heater_temp: 50.0
 
@@ -1374,7 +1681,9 @@ pin: ${prefix}:CHANGE_ME
     return fanConfigs[fan] || '';
 }
 
-function generateSensorSection(sensor, prefix) {
+function generateSensorSection(sensor, mcu) {
+    const prefix = mcu.name;
+    
     const sensorConfigs = {
         'hotend_temp': '', // Usually part of extruder section
         'bed_temp': '', // Usually part of heater_bed section
@@ -1395,11 +1704,29 @@ sensor_mcu: ${prefix}
     return sensorConfigs[sensor] || '';
 }
 
-function generateProbeSection(probe, prefix) {
+function generateProbeSection(probe, mcu) {
+    const prefix = mcu.name;
+    
+    // Try to get probe pins from board config
+    let probePin = `${prefix}:CHANGE_ME`;
+    let controlPin = `${prefix}:CHANGE_ME`;
+    
+    if (mcu.parsedSections) {
+        if (mcu.parsedSections['probe']) {
+            const pins = mcu.parsedSections['probe'].pins;
+            if (pins.pin) probePin = `${prefix}:${pins.pin}`;
+        }
+        if (mcu.parsedSections['bltouch']) {
+            const pins = mcu.parsedSections['bltouch'].pins;
+            if (pins.sensor_pin) probePin = `^${prefix}:${pins.sensor_pin.replace('^', '')}`;
+            if (pins.control_pin) controlPin = `${prefix}:${pins.control_pin}`;
+        }
+    }
+    
     if (probe === 'probe') {
         return `[probe]
 # Probe on ${prefix}
-pin: ${prefix}:CHANGE_ME
+pin: ${probePin}
 x_offset: 0
 y_offset: 25.0
 #z_offset: 0  # Set via PROBE_CALIBRATE
@@ -1414,8 +1741,8 @@ samples_tolerance_retries: 3
     } else if (probe === 'bltouch') {
         return `[bltouch]
 # BLTouch on ${prefix}
-sensor_pin: ^${prefix}:CHANGE_ME
-control_pin: ${prefix}:CHANGE_ME
+sensor_pin: ${probePin}
+control_pin: ${controlPin}
 x_offset: -40
 y_offset: -10
 #z_offset: 0  # Set via PROBE_CALIBRATE
@@ -1427,7 +1754,7 @@ sample_retract_dist: 5.0
     } else if (probe === 'tap') {
         return `[probe]
 # Voron Tap on ${prefix}
-pin: ${prefix}:CHANGE_ME
+pin: ${probePin}
 x_offset: 0
 y_offset: 0
 #z_offset: 0  # Set via PROBE_CALIBRATE
@@ -1459,7 +1786,9 @@ activate_gcode:
     return '';
 }
 
-function generateLedSection(led, prefix) {
+function generateLedSection(led, mcu) {
+    const prefix = mcu.name;
+    
     if (led === 'toolhead_leds') {
         return `[neopixel sb_leds]
 # Stealthburner LEDs on ${prefix}
@@ -1494,7 +1823,23 @@ value: 0
     return '';
 }
 
-function generateAccelerometerSection(accel, prefix) {
+function generateAccelerometerSection(accel, mcu) {
+    const prefix = mcu.name;
+    
+    // Try to get ADXL pins from board config
+    let csPin = `${prefix}:CHANGE_ME`;
+    let sclkPin = `${prefix}:CHANGE_ME`;
+    let mosiPin = `${prefix}:CHANGE_ME`;
+    let misoPin = `${prefix}:CHANGE_ME`;
+    
+    if (mcu.parsedSections && mcu.parsedSections['adxl345']) {
+        const pins = mcu.parsedSections['adxl345'].pins;
+        if (pins.cs_pin) csPin = `${prefix}:${pins.cs_pin}`;
+        if (pins.spi_software_sclk_pin) sclkPin = `${prefix}:${pins.spi_software_sclk_pin}`;
+        if (pins.spi_software_mosi_pin) mosiPin = `${prefix}:${pins.spi_software_mosi_pin}`;
+        if (pins.spi_software_miso_pin) misoPin = `${prefix}:${pins.spi_software_miso_pin}`;
+    }
+    
     if (accel === 'adxl345') {
         if (prefix === 'host') {
             return `[adxl345]
@@ -1509,10 +1854,10 @@ probe_points: 150, 150, 20  # Adjust to your bed center
         }
         return `[adxl345]
 # ADXL345 on ${prefix}
-cs_pin: ${prefix}:CHANGE_ME
-spi_software_sclk_pin: ${prefix}:CHANGE_ME
-spi_software_mosi_pin: ${prefix}:CHANGE_ME
-spi_software_miso_pin: ${prefix}:CHANGE_ME
+cs_pin: ${csPin}
+spi_software_sclk_pin: ${sclkPin}
+spi_software_mosi_pin: ${mosiPin}
+spi_software_miso_pin: ${misoPin}
 axes_map: x,y,z
 
 [resonance_tester]
@@ -1523,10 +1868,10 @@ probe_points: 150, 150, 20  # Adjust to your bed center
     } else if (accel === 'lis2dw') {
         return `[lis2dw]
 # LIS2DW accelerometer on ${prefix}
-cs_pin: ${prefix}:CHANGE_ME
-spi_software_sclk_pin: ${prefix}:CHANGE_ME
-spi_software_mosi_pin: ${prefix}:CHANGE_ME
-spi_software_miso_pin: ${prefix}:CHANGE_ME
+cs_pin: ${csPin}
+spi_software_sclk_pin: ${sclkPin}
+spi_software_mosi_pin: ${mosiPin}
+spi_software_miso_pin: ${misoPin}
 
 [resonance_tester]
 accel_chip: lis2dw
@@ -1537,7 +1882,9 @@ probe_points: 150, 150, 20  # Adjust to your bed center
     return '';
 }
 
-function generateFilamentSensorSection(sensor, prefix) {
+function generateFilamentSensorSection(sensor, mcu) {
+    const prefix = mcu.name;
+    
     if (sensor === 'filament_switch') {
         return `[filament_switch_sensor filament_sensor]
 # Filament switch sensor on ${prefix}
@@ -1564,7 +1911,9 @@ runout_gcode:
     return '';
 }
 
-function generateGpioSection(gpio, prefix) {
+function generateGpioSection(gpio, mcu) {
+    const prefix = mcu.name;
+    
     if (gpio === 'relay') {
         return `[output_pin relay]
 # Relay control on ${prefix}

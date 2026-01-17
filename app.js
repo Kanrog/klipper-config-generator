@@ -812,6 +812,179 @@ function resetSecondaryMcuSlotTracking() {
     }
 }
 
+/**
+ * Get a list of section names that are being handled by secondary MCUs
+ * These sections should be commented out in the main config
+ */
+function getSectionsHandledBySecondaryMcus() {
+    const handledSections = new Set();
+    const mcus = window.currentConfigData.secondaryMcus || [];
+    
+    for (const mcu of mcus) {
+        if (!mcu.enabled || !mcu.functions) continue;
+        
+        // Steppers
+        if (mcu.functions.steppers) {
+            for (const stepper of mcu.functions.steppers) {
+                // Add the stepper section
+                handledSections.add(stepper);
+                // Also add corresponding TMC sections
+                handledSections.add(`tmc2209 ${stepper}`);
+                handledSections.add(`tmc2208 ${stepper}`);
+                handledSections.add(`tmc2130 ${stepper}`);
+                handledSections.add(`tmc5160 ${stepper}`);
+            }
+        }
+        
+        // Heaters
+        if (mcu.functions.heaters) {
+            for (const heater of mcu.functions.heaters) {
+                if (heater === 'hotend') {
+                    handledSections.add('extruder');
+                    // Also add TMC for extruder
+                    handledSections.add('tmc2209 extruder');
+                    handledSections.add('tmc2208 extruder');
+                } else if (heater === 'heater_bed') {
+                    handledSections.add('heater_bed');
+                }
+            }
+        }
+        
+        // Fans
+        if (mcu.functions.fans) {
+            for (const fan of mcu.functions.fans) {
+                if (fan === 'part_fan') {
+                    handledSections.add('fan');
+                } else if (fan === 'hotend_fan') {
+                    handledSections.add('heater_fan hotend_fan');
+                    handledSections.add('heater_fan my_nozzle_fan');
+                    handledSections.add('heater_fan extruder_fan');
+                }
+            }
+        }
+        
+        // Probing
+        if (mcu.functions.probing) {
+            for (const probe of mcu.functions.probing) {
+                if (probe === 'probe' || probe === 'tap') {
+                    handledSections.add('probe');
+                } else if (probe === 'bltouch') {
+                    handledSections.add('bltouch');
+                }
+            }
+        }
+        
+        // Accelerometer
+        if (mcu.functions.accelerometer) {
+            for (const accel of mcu.functions.accelerometer) {
+                handledSections.add(accel); // adxl345, lis2dw
+            }
+        }
+        
+        // Filament sensors
+        if (mcu.functions.filament) {
+            for (const sensor of mcu.functions.filament) {
+                if (sensor === 'filament_switch') {
+                    handledSections.add('filament_switch_sensor');
+                } else if (sensor === 'filament_motion') {
+                    handledSections.add('filament_motion_sensor');
+                }
+            }
+        }
+    }
+    
+    return handledSections;
+}
+
+/**
+ * Check if a section name matches any section handled by secondary MCUs
+ */
+function isSectionHandledBySecondaryMcu(sectionName, handledSections) {
+    const name = sectionName.toLowerCase();
+    
+    // Direct match
+    if (handledSections.has(name)) {
+        return true;
+    }
+    
+    // Check for partial matches (e.g., "heater_fan hotend_fan" should match "heater_fan")
+    for (const handled of handledSections) {
+        if (name.startsWith(handled) || handled.startsWith(name)) {
+            // Be careful with partial matches - only for specific cases
+            if (name.includes('heater_fan') && handled.includes('heater_fan')) {
+                return true;
+            }
+            if (name.includes('filament_switch_sensor') && handled.includes('filament_switch_sensor')) {
+                return true;
+            }
+            if (name.includes('filament_motion_sensor') && handled.includes('filament_motion_sensor')) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Get the name of the secondary MCU that handles a given section
+ */
+function getSecondaryMcuForSection(sectionName) {
+    const name = sectionName.toLowerCase();
+    const mcus = window.currentConfigData.secondaryMcus || [];
+    
+    for (const mcu of mcus) {
+        if (!mcu.enabled || !mcu.functions) continue;
+        
+        // Check steppers
+        if (mcu.functions.steppers) {
+            for (const stepper of mcu.functions.steppers) {
+                if (name === stepper || name.includes(stepper)) {
+                    return mcu.name;
+                }
+                // Check TMC sections
+                if (name.startsWith('tmc') && name.includes(stepper)) {
+                    return mcu.name;
+                }
+            }
+        }
+        
+        // Check heaters
+        if (mcu.functions.heaters) {
+            for (const heater of mcu.functions.heaters) {
+                if (heater === 'hotend' && (name === 'extruder' || name.includes('tmc') && name.includes('extruder'))) {
+                    return mcu.name;
+                }
+                if (heater === 'heater_bed' && name === 'heater_bed') {
+                    return mcu.name;
+                }
+            }
+        }
+        
+        // Check fans
+        if (mcu.functions.fans) {
+            if (mcu.functions.fans.includes('part_fan') && name === 'fan') {
+                return mcu.name;
+            }
+            if (mcu.functions.fans.includes('hotend_fan') && name.includes('heater_fan')) {
+                return mcu.name;
+            }
+        }
+        
+        // Check probing
+        if (mcu.functions.probing) {
+            if ((mcu.functions.probing.includes('probe') || mcu.functions.probing.includes('tap')) && name === 'probe') {
+                return mcu.name;
+            }
+            if (mcu.functions.probing.includes('bltouch') && name === 'bltouch') {
+                return mcu.name;
+            }
+        }
+    }
+    
+    return 'secondary_mcu';
+}
+
 function removeSecondaryMcu(mcuId) {
     const index = window.currentConfigData.secondaryMcus.findIndex(m => m.id === mcuId);
     if (index !== -1) {
@@ -2771,6 +2944,9 @@ function generate() {
         document.querySelectorAll('#sections-container input[type="checkbox"]:checked')
     ).map(cb => parseInt(cb.value));
     
+    // Get sections that are handled by secondary MCUs - these should be commented out
+    const sectionsHandledBySecondaryMcus = getSectionsHandledBySecondaryMcus();
+    
     let lines = rawConfig.split('\n');
     
     const saveConfigStart = lines.findIndex(line => 
@@ -2781,7 +2957,9 @@ function generate() {
     
     let output = '';
     let currentSectionIndex = -1;
+    let currentSectionName = '';
     let inSaveConfig = false;
+    let sectionHandledBySecondaryMcu = false;
     let i = 0;
     
     if (includesBlock) {
@@ -2812,6 +2990,10 @@ function generate() {
             currentSectionIndex = sections.findIndex((s, idx) => 
                 s.startLine === i
             );
+            currentSectionName = sectionMatch[2].trim().toLowerCase();
+            
+            // Check if this section is handled by a secondary MCU
+            sectionHandledBySecondaryMcu = isSectionHandledBySecondaryMcu(currentSectionName, sectionsHandledBySecondaryMcus);
         }
         
         const isCurrentSectionSelected = currentSectionIndex !== -1 && 
@@ -2824,7 +3006,25 @@ function generate() {
             const section = sections[currentSectionIndex];
             const wasCommented = section.originallyCommented;
             
-            if (isCurrentSectionSelected) {
+            // If section is handled by secondary MCU, comment it out with a note
+            if (sectionHandledBySecondaryMcu) {
+                let processedLine = line;
+                
+                // Add note at section header
+                if (sectionMatch && line.includes('[')) {
+                    const mcuName = getSecondaryMcuForSection(currentSectionName);
+                    if (!line.trim().startsWith('#')) {
+                        processedLine = `# ${line}  # MOVED TO SECONDARY MCU: ${mcuName}`;
+                    } else {
+                        processedLine = line;
+                    }
+                } else if (!line.trim().startsWith('#') && line.trim() !== '') {
+                    processedLine = '# ' + line;
+                }
+                
+                output += processedLine + '\n';
+                i++;
+            } else if (isCurrentSectionSelected) {
                 let processedLine = line;
                 
                 if (wasCommented && line.trim().startsWith('#')) {
@@ -3012,8 +3212,32 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
 function generateAdditionalZMotors(settings, sections) {
     if (settings.zMotorCount <= 1) return '';
     
+    // Get sections handled by secondary MCUs
+    const sectionsHandledBySecondaryMcus = getSectionsHandledBySecondaryMcus();
+    
     const separator = '#=====================================#\n';
     let cfg = '';
+    
+    // Check if any Z motors need to be generated on main MCU
+    let motorsToGenerate = [];
+    for (let i = 1; i < settings.zMotorCount; i++) {
+        const stepperName = `stepper_z${i}`;
+        if (!sectionsHandledBySecondaryMcus.has(stepperName)) {
+            motorsToGenerate.push(i);
+        }
+    }
+    
+    // If all additional Z motors are on secondary MCUs, don't generate anything
+    if (motorsToGenerate.length === 0) {
+        // Still generate z_tilt or QGL if needed
+        if (settings.zLevelingType === 'z_tilt' || settings.zLevelingType === 'quad_gantry_level') {
+            cfg += `${separator}`;
+            cfg += `# Z LEVELING CONFIGURATION\n`;
+            cfg += `${separator}\n\n`;
+            cfg += generateZLevelingSection(settings);
+        }
+        return cfg;
+    }
     
     cfg += `${separator}`;
     cfg += `# ADDITIONAL Z MOTORS (Generated)\n`;
@@ -3028,7 +3252,7 @@ function generateAdditionalZMotors(settings, sections) {
     const microMatch = stepperZContent.match(/microsteps:\s*(\d+)/);
     const microsteps = microMatch ? microMatch[1] : '16';
     
-    for (let i = 1; i < settings.zMotorCount; i++) {
+    for (const i of motorsToGenerate) {
         cfg += `[stepper_z${i}]\n`;
         cfg += `step_pin: CHANGE_ME\n`;
         cfg += `dir_pin: CHANGE_ME\n`;
@@ -3049,13 +3273,24 @@ function generateAdditionalZMotors(settings, sections) {
         const currentMatch = tmcContent.match(/run_current:\s*([\d.]+)/);
         const runCurrent = currentMatch ? currentMatch[1] : '0.580';
         
-        for (let i = 1; i < settings.zMotorCount; i++) {
+        for (const i of motorsToGenerate) {
             cfg += `[${tmcType} stepper_z${i}]\n`;
             cfg += `uart_pin: CHANGE_ME\n`;
             cfg += `run_current: ${runCurrent}\n`;
             cfg += `stealthchop_threshold: 999999\n\n`;
         }
     }
+    
+    cfg += generateZLevelingSection(settings);
+    
+    return cfg;
+}
+
+/**
+ * Generate Z leveling section (z_tilt or quad_gantry_level)
+ */
+function generateZLevelingSection(settings) {
+    let cfg = '';
     
     if (settings.zLevelingType === 'z_tilt') {
         cfg += `[z_tilt]\n`;
@@ -3067,6 +3302,11 @@ function generateAdditionalZMotors(settings, sections) {
             cfg += `    ${Math.round(settings.bedX / 2)}, -50\n`;
             cfg += `    -50, ${settings.bedY + 50}\n`;
             cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}\n`;
+        } else if (settings.zMotorCount === 4) {
+            cfg += `    -50, -50\n`;
+            cfg += `    -50, ${settings.bedY + 50}\n`;
+            cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}\n`;
+            cfg += `    ${settings.bedX + 50}, -50\n`;
         }
         cfg += `points:\n`;
         cfg += `    30, ${Math.round(settings.bedY / 2)}\n`;
