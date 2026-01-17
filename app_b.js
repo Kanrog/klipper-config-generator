@@ -30,7 +30,126 @@ const INCLUDE_PRESETS = [
     { name: 'stealthburner_leds.cfg', description: 'Voron Stealthburner LED macros' },
 ];
 
-// Secondary MCU presets
+// MCU Function definitions - what each MCU type can control
+const MCU_FUNCTIONS = {
+    // Stepper-related functions
+    steppers: {
+        label: 'Stepper Motors',
+        icon: '⚙️',
+        description: 'Control stepper motors from this MCU',
+        subOptions: {
+            stepper_x: { label: 'X Stepper', forTypes: ['expansion'] },
+            stepper_y: { label: 'Y Stepper', forTypes: ['expansion'] },
+            stepper_z: { label: 'Z Stepper', forTypes: ['expansion'] },
+            stepper_z1: { label: 'Z1 Stepper', forTypes: ['expansion'] },
+            stepper_z2: { label: 'Z2 Stepper', forTypes: ['expansion'] },
+            stepper_z3: { label: 'Z3 Stepper', forTypes: ['expansion'] },
+            extruder: { label: 'Extruder', forTypes: ['toolhead', 'expansion'] },
+            extruder1: { label: 'Extruder 2', forTypes: ['expansion'] }
+        },
+        forTypes: ['toolhead', 'expansion']
+    },
+    // Heater functions
+    heaters: {
+        label: 'Heaters',
+        icon: '🔥',
+        description: 'Control heaters from this MCU',
+        subOptions: {
+            hotend: { label: 'Hotend Heater', forTypes: ['toolhead', 'expansion'] },
+            heater_bed: { label: 'Heated Bed', forTypes: ['expansion'] },
+            heater_chamber: { label: 'Chamber Heater', forTypes: ['expansion'] }
+        },
+        forTypes: ['toolhead', 'expansion']
+    },
+    // Fan functions
+    fans: {
+        label: 'Fans',
+        icon: '💨',
+        description: 'Control fans from this MCU',
+        subOptions: {
+            part_fan: { label: 'Part Cooling Fan', forTypes: ['toolhead', 'expansion'] },
+            hotend_fan: { label: 'Hotend Fan', forTypes: ['toolhead', 'expansion'] },
+            controller_fan: { label: 'Controller Fan', forTypes: ['expansion'] },
+            exhaust_fan: { label: 'Exhaust Fan', forTypes: ['expansion'] },
+            filter_fan: { label: 'Nevermore/Filter Fan', forTypes: ['expansion'] }
+        },
+        forTypes: ['toolhead', 'expansion', 'host']
+    },
+    // Temperature sensors
+    sensors: {
+        label: 'Temperature Sensors',
+        icon: '🌡️',
+        description: 'Read temperature sensors',
+        subOptions: {
+            hotend_temp: { label: 'Hotend Thermistor', forTypes: ['toolhead', 'expansion'] },
+            bed_temp: { label: 'Bed Thermistor', forTypes: ['expansion'] },
+            chamber_temp: { label: 'Chamber Sensor', forTypes: ['expansion', 'host'] },
+            mcu_temp: { label: 'MCU Temperature', forTypes: ['toolhead', 'expansion', 'host'] }
+        },
+        forTypes: ['toolhead', 'expansion', 'host']
+    },
+    // Probing
+    probing: {
+        label: 'Probing',
+        icon: '📍',
+        description: 'Probe or endstop connections',
+        subOptions: {
+            probe: { label: 'Z Probe (Inductive/Capacitive)', forTypes: ['toolhead', 'expansion'] },
+            bltouch: { label: 'BLTouch', forTypes: ['toolhead', 'expansion'] },
+            tap: { label: 'Voron Tap', forTypes: ['toolhead'] },
+            endstops: { label: 'Endstop Switches', forTypes: ['expansion'] }
+        },
+        forTypes: ['toolhead', 'expansion']
+    },
+    // LEDs
+    leds: {
+        label: 'LEDs',
+        icon: '💡',
+        description: 'Control LED lighting',
+        subOptions: {
+            toolhead_leds: { label: 'Toolhead LEDs (Stealthburner)', forTypes: ['toolhead'] },
+            case_leds: { label: 'Case/Chamber LEDs', forTypes: ['expansion', 'host'] },
+            status_led: { label: 'Status LED', forTypes: ['toolhead', 'expansion', 'host'] }
+        },
+        forTypes: ['toolhead', 'expansion', 'host']
+    },
+    // Accelerometer
+    accelerometer: {
+        label: 'Accelerometer',
+        icon: '📊',
+        description: 'Input shaper accelerometer',
+        subOptions: {
+            adxl345: { label: 'ADXL345', forTypes: ['toolhead', 'host'] },
+            lis2dw: { label: 'LIS2DW', forTypes: ['toolhead'] }
+        },
+        forTypes: ['toolhead', 'host']
+    },
+    // Filament sensor
+    filament: {
+        label: 'Filament Sensor',
+        icon: '🧵',
+        description: 'Filament runout detection',
+        subOptions: {
+            filament_switch: { label: 'Switch Sensor', forTypes: ['toolhead', 'expansion', 'host'] },
+            filament_motion: { label: 'Motion Sensor (Encoder)', forTypes: ['toolhead', 'expansion'] }
+        },
+        forTypes: ['toolhead', 'expansion', 'host']
+    },
+    // GPIO (mainly for RPi)
+    gpio: {
+        label: 'GPIO Pins',
+        icon: '🔌',
+        description: 'General purpose I/O',
+        subOptions: {
+            relay: { label: 'Relay Control', forTypes: ['host', 'expansion'] },
+            button: { label: 'Physical Buttons', forTypes: ['host', 'expansion'] },
+            power_control: { label: 'Power Control', forTypes: ['host', 'expansion'] }
+        },
+        forTypes: ['host', 'expansion']
+    }
+};
+
+// Secondary MCU presets with default functions
 const SECONDARY_MCU_PRESETS = {
     'ebb36-v1.2': {
         name: 'BTT EBB36 v1.2',
@@ -38,7 +157,15 @@ const SECONDARY_MCU_PRESETS = {
         type: 'toolhead',
         connectionType: 'canbus',
         description: 'BigTreeTech EBB36 CAN toolhead board',
-        configFile: 'sample-bigtreetech-ebb-canbus-v1.2.cfg'
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.2.cfg',
+        defaultFunctions: {
+            steppers: ['extruder'],
+            heaters: ['hotend'],
+            fans: ['part_fan', 'hotend_fan'],
+            sensors: ['hotend_temp'],
+            probing: ['probe'],
+            accelerometer: ['adxl345']
+        }
     },
     'ebb42-v1.2': {
         name: 'BTT EBB42 v1.2',
@@ -46,7 +173,15 @@ const SECONDARY_MCU_PRESETS = {
         type: 'toolhead',
         connectionType: 'canbus',
         description: 'BigTreeTech EBB42 CAN toolhead board',
-        configFile: 'sample-bigtreetech-ebb-canbus-v1.2.cfg'
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.2.cfg',
+        defaultFunctions: {
+            steppers: ['extruder'],
+            heaters: ['hotend'],
+            fans: ['part_fan', 'hotend_fan'],
+            sensors: ['hotend_temp'],
+            probing: ['probe'],
+            accelerometer: ['adxl345']
+        }
     },
     'ebb36-v1.1': {
         name: 'BTT EBB36 v1.1',
@@ -54,7 +189,14 @@ const SECONDARY_MCU_PRESETS = {
         type: 'toolhead',
         connectionType: 'canbus',
         description: 'BigTreeTech EBB36 v1.1 CAN toolhead',
-        configFile: 'sample-bigtreetech-ebb-canbus-v1.1.cfg'
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.1.cfg',
+        defaultFunctions: {
+            steppers: ['extruder'],
+            heaters: ['hotend'],
+            fans: ['part_fan', 'hotend_fan'],
+            sensors: ['hotend_temp'],
+            probing: ['probe']
+        }
     },
     'ebb36-v1.0': {
         name: 'BTT EBB36 v1.0',
@@ -62,14 +204,28 @@ const SECONDARY_MCU_PRESETS = {
         type: 'toolhead',
         connectionType: 'canbus',
         description: 'BigTreeTech EBB36 v1.0 CAN toolhead',
-        configFile: 'sample-bigtreetech-ebb-canbus-v1.0.cfg'
+        configFile: 'sample-bigtreetech-ebb-canbus-v1.0.cfg',
+        defaultFunctions: {
+            steppers: ['extruder'],
+            heaters: ['hotend'],
+            fans: ['part_fan', 'hotend_fan'],
+            sensors: ['hotend_temp']
+        }
     },
     'sht36': {
         name: 'Mellow SHT36/42',
         mcuName: 'sht',
         type: 'toolhead',
         connectionType: 'canbus',
-        description: 'Mellow FLY-SHT36/42 CAN toolhead'
+        description: 'Mellow FLY-SHT36/42 CAN toolhead',
+        defaultFunctions: {
+            steppers: ['extruder'],
+            heaters: ['hotend'],
+            fans: ['part_fan', 'hotend_fan'],
+            sensors: ['hotend_temp'],
+            probing: ['probe'],
+            accelerometer: ['adxl345']
+        }
     },
     'rpi': {
         name: 'Raspberry Pi',
@@ -77,14 +233,23 @@ const SECONDARY_MCU_PRESETS = {
         type: 'host',
         connectionType: 'linux',
         description: 'Raspberry Pi as secondary MCU for GPIO/sensors',
-        configFile: 'sample-raspberry-pi.cfg'
+        configFile: 'sample-raspberry-pi.cfg',
+        defaultFunctions: {
+            accelerometer: ['adxl345'],
+            sensors: ['chamber_temp'],
+            gpio: ['power_control']
+        }
     },
     'expansion': {
         name: 'Expansion Board',
         mcuName: 'mcu2',
         type: 'expansion',
         connectionType: 'usb',
-        description: 'Additional printer board for more motors'
+        description: 'Additional printer board for more motors',
+        defaultFunctions: {
+            steppers: ['stepper_z1', 'stepper_z2'],
+            fans: ['controller_fan']
+        }
     },
     'mmu': {
         name: 'MMU/ERCF Board',
@@ -92,7 +257,11 @@ const SECONDARY_MCU_PRESETS = {
         type: 'mmu',
         connectionType: 'usb',
         description: 'Multi-material unit control board',
-        configFile: 'sample-mmu2s-diy.cfg'
+        configFile: 'sample-mmu2s-diy.cfg',
+        defaultFunctions: {
+            steppers: ['extruder1'],
+            filament: ['filament_motion']
+        }
     },
     'duet-1lc': {
         name: 'Duet3 1LC',
@@ -100,7 +269,13 @@ const SECONDARY_MCU_PRESETS = {
         type: 'toolhead',
         connectionType: 'canbus',
         description: 'Duet3 1LC CAN toolboard',
-        configFile: 'sample-duet3-1lc.cfg'
+        configFile: 'sample-duet3-1lc.cfg',
+        defaultFunctions: {
+            steppers: ['extruder'],
+            heaters: ['hotend'],
+            fans: ['part_fan', 'hotend_fan'],
+            sensors: ['hotend_temp']
+        }
     }
 };
 
@@ -352,7 +527,8 @@ function addSecondaryMcuFromPreset(presetKey) {
         configFile: preset.configFile || null,
         configData: null,
         enabled: true,
-        isCustomUpload: false
+        isCustomUpload: false,
+        functions: JSON.parse(JSON.stringify(preset.defaultFunctions || {}))  // Deep copy default functions
     };
     
     if (preset.type === 'expansion') {
@@ -392,12 +568,22 @@ function handleSecondaryMcuUpload(event) {
             connectionType = 'linux';
         }
         
+        // Try to detect MCU type from config content
+        let mcuType = 'custom';
+        if (configText.includes('extruder') && (configText.includes('heater_fan') || configText.includes('fan_generic'))) {
+            mcuType = 'toolhead';
+        } else if (configText.includes('/tmp/klipper_host_mcu')) {
+            mcuType = 'host';
+        } else if (configText.includes('stepper_')) {
+            mcuType = 'expansion';
+        }
+        
         const mcu = {
             id: id,
             presetKey: null,
             name: detectedName,
             displayName: `📁 ${file.name}`,
-            type: 'custom',
+            type: mcuType,
             connectionType: connectionType,
             description: `Uploaded config: ${file.name}`,
             serial: connectionType === 'canbus' ? '' : '/dev/serial/by-id/usb-Klipper_CHANGE_ME',
@@ -405,7 +591,8 @@ function handleSecondaryMcuUpload(event) {
             configFile: file.name,
             configData: configText,
             enabled: true,
-            isCustomUpload: true
+            isCustomUpload: true,
+            functions: {}  // Empty functions - user will configure
         };
         
         window.currentConfigData.secondaryMcus.push(mcu);
@@ -622,6 +809,14 @@ async function confirmExpansionBoard() {
     const mcuNameInput = document.getElementById('expansionMcuName');
     mcu.name = mcuNameInput.value.replace(/\s+/g, '_').toLowerCase() || 'mcu2';
     
+    // Set default functions for expansion board if not already set
+    if (!mcu.functions) {
+        mcu.functions = {
+            steppers: ['stepper_z1', 'stepper_z2'],
+            fans: ['controller_fan']
+        };
+    }
+    
     if (window._pendingExpansionFile) {
         const file = window._pendingExpansionFile;
         const reader = new FileReader();
@@ -703,6 +898,9 @@ function renderSecondaryMcusUI() {
             'custom': '📁'
         }[mcu.type] || '📦';
         
+        // Build functions summary
+        const functionsHtml = renderMcuFunctionsPanel(mcu);
+        
         html += `
             <div class="mcu-item ${mcu.enabled ? '' : 'disabled'}" data-mcu-id="${mcu.id}">
                 <div class="mcu-item-header">
@@ -751,6 +949,9 @@ function renderSecondaryMcusUI() {
                             <span class="mcu-config-file">${mcu.configFile}</span>
                         </div>
                     ` : ''}
+                    
+                    <!-- MCU Functions Panel -->
+                    ${functionsHtml}
                 </div>
             </div>
         `;
@@ -758,6 +959,148 @@ function renderSecondaryMcusUI() {
     
     container.innerHTML = html;
     updateSecondaryMcuCount();
+}
+
+/**
+ * Render the functions panel for an MCU
+ */
+function renderMcuFunctionsPanel(mcu) {
+    const mcuType = mcu.type || 'expansion';
+    const mcuFunctions = mcu.functions || {};
+    
+    let html = `
+        <div class="mcu-functions-panel">
+            <div class="mcu-functions-header" onclick="toggleMcuFunctionsExpand('${mcu.id}')">
+                <span class="mcu-functions-title">🎛️ Functions</span>
+                <span class="mcu-functions-summary">${getMcuFunctionsSummary(mcuFunctions)}</span>
+                <span class="mcu-functions-toggle" id="mcu-func-toggle-${mcu.id}">▼</span>
+            </div>
+            <div class="mcu-functions-body" id="mcu-func-body-${mcu.id}" style="display: none;">
+    `;
+    
+    // Iterate through function categories
+    for (const [categoryKey, category] of Object.entries(MCU_FUNCTIONS)) {
+        // Check if this category applies to this MCU type
+        if (!category.forTypes.includes(mcuType) && mcuType !== 'custom') {
+            continue;
+        }
+        
+        const categoryEnabled = mcuFunctions[categoryKey] && mcuFunctions[categoryKey].length > 0;
+        
+        html += `
+            <div class="mcu-func-category">
+                <div class="mcu-func-category-header">
+                    <span class="mcu-func-icon">${category.icon}</span>
+                    <span class="mcu-func-label">${category.label}</span>
+                </div>
+                <div class="mcu-func-options">
+        `;
+        
+        // Sub-options
+        for (const [optKey, option] of Object.entries(category.subOptions)) {
+            // Check if this option applies to this MCU type
+            if (!option.forTypes.includes(mcuType) && mcuType !== 'custom') {
+                continue;
+            }
+            
+            const isChecked = mcuFunctions[categoryKey] && mcuFunctions[categoryKey].includes(optKey);
+            
+            html += `
+                <label class="mcu-func-option">
+                    <input type="checkbox" 
+                           ${isChecked ? 'checked' : ''}
+                           onchange="toggleMcuFunction('${mcu.id}', '${categoryKey}', '${optKey}', this.checked)">
+                    <span>${option.label}</span>
+                </label>
+            `;
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+/**
+ * Get a summary of enabled functions for display
+ */
+function getMcuFunctionsSummary(functions) {
+    if (!functions || Object.keys(functions).length === 0) {
+        return '<span class="mcu-func-none">None configured</span>';
+    }
+    
+    const enabledCategories = [];
+    for (const [key, values] of Object.entries(functions)) {
+        if (values && values.length > 0) {
+            const category = MCU_FUNCTIONS[key];
+            if (category) {
+                enabledCategories.push(category.icon);
+            }
+        }
+    }
+    
+    if (enabledCategories.length === 0) {
+        return '<span class="mcu-func-none">None configured</span>';
+    }
+    
+    return enabledCategories.join(' ');
+}
+
+/**
+ * Toggle the functions panel expanded/collapsed
+ */
+function toggleMcuFunctionsExpand(mcuId) {
+    const body = document.getElementById(`mcu-func-body-${mcuId}`);
+    const toggle = document.getElementById(`mcu-func-toggle-${mcuId}`);
+    
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        toggle.textContent = '▲';
+    } else {
+        body.style.display = 'none';
+        toggle.textContent = '▼';
+    }
+}
+
+/**
+ * Toggle a specific function on/off for an MCU
+ */
+function toggleMcuFunction(mcuId, category, option, enabled) {
+    const mcu = window.currentConfigData.secondaryMcus.find(m => m.id === mcuId);
+    if (!mcu) return;
+    
+    if (!mcu.functions) {
+        mcu.functions = {};
+    }
+    
+    if (!mcu.functions[category]) {
+        mcu.functions[category] = [];
+    }
+    
+    if (enabled) {
+        if (!mcu.functions[category].includes(option)) {
+            mcu.functions[category].push(option);
+        }
+    } else {
+        mcu.functions[category] = mcu.functions[category].filter(o => o !== option);
+    }
+    
+    // Update just the summary without full re-render
+    const mcuItem = document.querySelector(`[data-mcu-id="${mcuId}"]`);
+    if (mcuItem) {
+        const summary = mcuItem.querySelector('.mcu-functions-summary');
+        if (summary) {
+            summary.innerHTML = getMcuFunctionsSummary(mcu.functions);
+        }
+    }
 }
 
 function updateSecondaryMcuCount() {
@@ -811,12 +1154,443 @@ function generateSecondaryMcuBlocks() {
         if (mcu.description) {
             output += `# ${mcu.description}\n`;
         }
-        output += `# Remember to prefix all pins with "${mcu.name}:" when using this MCU\n`;
-        output += `# Example: step_pin: ${mcu.name}:PB13\n`;
-        output += '\n';
+        output += `# Pin prefix: "${mcu.name}:"\n\n`;
+        
+        // Generate sections based on selected functions
+        output += generateMcuFunctionSections(mcu);
     }
     
     return output;
+}
+
+/**
+ * Generate config sections based on the MCU's selected functions
+ */
+function generateMcuFunctionSections(mcu) {
+    const functions = mcu.functions || {};
+    const prefix = mcu.name;
+    let output = '';
+    
+    // Generate stepper sections
+    if (functions.steppers && functions.steppers.length > 0) {
+        output += `# ---- Steppers on ${prefix} ----\n`;
+        for (const stepper of functions.steppers) {
+            output += generateStepperSection(stepper, prefix);
+        }
+    }
+    
+    // Generate heater sections
+    if (functions.heaters && functions.heaters.length > 0) {
+        output += `# ---- Heaters on ${prefix} ----\n`;
+        for (const heater of functions.heaters) {
+            output += generateHeaterSection(heater, prefix);
+        }
+    }
+    
+    // Generate fan sections
+    if (functions.fans && functions.fans.length > 0) {
+        output += `# ---- Fans on ${prefix} ----\n`;
+        for (const fan of functions.fans) {
+            output += generateFanSection(fan, prefix);
+        }
+    }
+    
+    // Generate temperature sensor sections
+    if (functions.sensors && functions.sensors.length > 0) {
+        output += `# ---- Temperature Sensors on ${prefix} ----\n`;
+        for (const sensor of functions.sensors) {
+            output += generateSensorSection(sensor, prefix);
+        }
+    }
+    
+    // Generate probe sections
+    if (functions.probing && functions.probing.length > 0) {
+        output += `# ---- Probing on ${prefix} ----\n`;
+        for (const probe of functions.probing) {
+            output += generateProbeSection(probe, prefix);
+        }
+    }
+    
+    // Generate LED sections
+    if (functions.leds && functions.leds.length > 0) {
+        output += `# ---- LEDs on ${prefix} ----\n`;
+        for (const led of functions.leds) {
+            output += generateLedSection(led, prefix);
+        }
+    }
+    
+    // Generate accelerometer sections
+    if (functions.accelerometer && functions.accelerometer.length > 0) {
+        output += `# ---- Accelerometer on ${prefix} ----\n`;
+        for (const accel of functions.accelerometer) {
+            output += generateAccelerometerSection(accel, prefix);
+        }
+    }
+    
+    // Generate filament sensor sections
+    if (functions.filament && functions.filament.length > 0) {
+        output += `# ---- Filament Sensors on ${prefix} ----\n`;
+        for (const sensor of functions.filament) {
+            output += generateFilamentSensorSection(sensor, prefix);
+        }
+    }
+    
+    // Generate GPIO sections
+    if (functions.gpio && functions.gpio.length > 0) {
+        output += `# ---- GPIO on ${prefix} ----\n`;
+        for (const gpio of functions.gpio) {
+            output += generateGpioSection(gpio, prefix);
+        }
+    }
+    
+    return output;
+}
+
+function generateStepperSection(stepper, prefix) {
+    const settings = window.currentConfigData?.defaultValues || {};
+    
+    // Map stepper names to Klipper section names
+    const stepperMap = {
+        'stepper_x': 'stepper_x',
+        'stepper_y': 'stepper_y',
+        'stepper_z': 'stepper_z',
+        'stepper_z1': 'stepper_z1',
+        'stepper_z2': 'stepper_z2',
+        'stepper_z3': 'stepper_z3',
+        'extruder': 'extruder',
+        'extruder1': 'extruder1'
+    };
+    
+    const sectionName = stepperMap[stepper] || stepper;
+    
+    let output = `[${sectionName}]\n`;
+    output += `step_pin: ${prefix}:CHANGE_ME\n`;
+    output += `dir_pin: ${prefix}:CHANGE_ME\n`;
+    output += `enable_pin: !${prefix}:CHANGE_ME\n`;
+    output += `microsteps: 16\n`;
+    
+    if (stepper === 'extruder' || stepper === 'extruder1') {
+        output += `rotation_distance: 22.6789511  # Calibrate this!\n`;
+        output += `nozzle_diameter: 0.400\n`;
+        output += `filament_diameter: 1.750\n`;
+        output += `max_extrude_only_distance: 100.0\n`;
+    } else {
+        output += `rotation_distance: 40  # Adjust for your setup\n`;
+    }
+    
+    output += `\n`;
+    
+    // Add TMC section for the stepper
+    output += `[tmc2209 ${sectionName}]\n`;
+    output += `uart_pin: ${prefix}:CHANGE_ME\n`;
+    if (stepper === 'extruder' || stepper === 'extruder1') {
+        output += `run_current: 0.650\n`;
+    } else {
+        output += `run_current: 0.800\n`;
+    }
+    output += `stealthchop_threshold: 999999\n\n`;
+    
+    return output;
+}
+
+function generateHeaterSection(heater, prefix) {
+    if (heater === 'hotend') {
+        return `[extruder]
+# Hotend heater on ${prefix}
+heater_pin: ${prefix}:CHANGE_ME
+sensor_type: EPCOS 100K B57560G104F
+sensor_pin: ${prefix}:CHANGE_ME
+control: pid
+pid_Kp: 21.527
+pid_Ki: 1.063
+pid_Kd: 108.982
+min_temp: 0
+max_temp: 280
+
+`;
+    } else if (heater === 'heater_bed') {
+        return `[heater_bed]
+# Heated bed on ${prefix}
+heater_pin: ${prefix}:CHANGE_ME
+sensor_type: Generic 3950
+sensor_pin: ${prefix}:CHANGE_ME
+control: pid
+pid_Kp: 54.027
+pid_Ki: 0.770
+pid_Kd: 948.182
+min_temp: 0
+max_temp: 130
+
+`;
+    } else if (heater === 'heater_chamber') {
+        return `[heater_generic chamber_heater]
+# Chamber heater on ${prefix}
+heater_pin: ${prefix}:CHANGE_ME
+sensor_type: Generic 3950
+sensor_pin: ${prefix}:CHANGE_ME
+control: watermark
+max_delta: 2.0
+min_temp: 0
+max_temp: 70
+
+`;
+    }
+    return '';
+}
+
+function generateFanSection(fan, prefix) {
+    const fanConfigs = {
+        'part_fan': `[fan]
+# Part cooling fan on ${prefix}
+pin: ${prefix}:CHANGE_ME
+
+`,
+        'hotend_fan': `[heater_fan hotend_fan]
+# Hotend cooling fan on ${prefix}
+pin: ${prefix}:CHANGE_ME
+heater: extruder
+heater_temp: 50.0
+
+`,
+        'controller_fan': `[controller_fan controller_fan]
+# Controller/electronics fan on ${prefix}
+pin: ${prefix}:CHANGE_ME
+kick_start_time: 0.5
+heater: heater_bed
+
+`,
+        'exhaust_fan': `[fan_generic exhaust_fan]
+# Exhaust fan on ${prefix}
+pin: ${prefix}:CHANGE_ME
+
+`,
+        'filter_fan': `[fan_generic nevermore]
+# Nevermore/filter fan on ${prefix}
+pin: ${prefix}:CHANGE_ME
+
+`
+    };
+    
+    return fanConfigs[fan] || '';
+}
+
+function generateSensorSection(sensor, prefix) {
+    const sensorConfigs = {
+        'hotend_temp': '', // Usually part of extruder section
+        'bed_temp': '', // Usually part of heater_bed section
+        'chamber_temp': `[temperature_sensor chamber]
+# Chamber temperature sensor on ${prefix}
+sensor_type: Generic 3950
+sensor_pin: ${prefix}:CHANGE_ME
+
+`,
+        'mcu_temp': `[temperature_sensor ${prefix}_mcu]
+# MCU temperature for ${prefix}
+sensor_type: temperature_mcu
+sensor_mcu: ${prefix}
+
+`
+    };
+    
+    return sensorConfigs[sensor] || '';
+}
+
+function generateProbeSection(probe, prefix) {
+    if (probe === 'probe') {
+        return `[probe]
+# Probe on ${prefix}
+pin: ${prefix}:CHANGE_ME
+x_offset: 0
+y_offset: 25.0
+#z_offset: 0  # Set via PROBE_CALIBRATE
+speed: 10.0
+samples: 3
+samples_result: median
+sample_retract_dist: 3.0
+samples_tolerance: 0.006
+samples_tolerance_retries: 3
+
+`;
+    } else if (probe === 'bltouch') {
+        return `[bltouch]
+# BLTouch on ${prefix}
+sensor_pin: ^${prefix}:CHANGE_ME
+control_pin: ${prefix}:CHANGE_ME
+x_offset: -40
+y_offset: -10
+#z_offset: 0  # Set via PROBE_CALIBRATE
+speed: 10.0
+samples: 3
+sample_retract_dist: 5.0
+
+`;
+    } else if (probe === 'tap') {
+        return `[probe]
+# Voron Tap on ${prefix}
+pin: ${prefix}:CHANGE_ME
+x_offset: 0
+y_offset: 0
+#z_offset: 0  # Set via PROBE_CALIBRATE
+speed: 5.0
+samples: 3
+samples_result: median
+sample_retract_dist: 2.0
+samples_tolerance: 0.006
+samples_tolerance_retries: 3
+activate_gcode:
+    {% set PROBE_TEMP = 150 %}
+    {% set MAX_TEMP = PROBE_TEMP + 5 %}
+    {% set ACTUAL_TEMP = printer.extruder.temperature %}
+    {% set TARGET_TEMP = printer.extruder.target %}
+
+    {% if TARGET_TEMP > PROBE_TEMP %}
+        { action_respond_info('Extruder temperature target of %.1fC is too high, lowering to %.1fC' % (TARGET_TEMP, PROBE_TEMP)) }
+        M109 S{ PROBE_TEMP }
+    {% else %}
+        # Temperature target is already low enough, but nozzle may still be too hot.
+        {% if ACTUAL_TEMP > MAX_TEMP %}
+            { action_respond_info('Extruder temperature %.1fC is still too high, waiting until below %.1fC' % (ACTUAL_TEMP, MAX_TEMP)) }
+            TEMPERATURE_WAIT SENSOR=extruder MAXIMUM={ MAX_TEMP }
+        {% endif %}
+    {% endif %}
+
+`;
+    }
+    return '';
+}
+
+function generateLedSection(led, prefix) {
+    if (led === 'toolhead_leds') {
+        return `[neopixel sb_leds]
+# Stealthburner LEDs on ${prefix}
+pin: ${prefix}:CHANGE_ME
+chain_count: 3
+color_order: GRBW
+initial_RED: 0.0
+initial_GREEN: 0.0
+initial_BLUE: 0.0
+initial_WHITE: 0.0
+
+`;
+    } else if (led === 'case_leds') {
+        return `[neopixel case_leds]
+# Case/chamber LEDs on ${prefix}
+pin: ${prefix}:CHANGE_ME
+chain_count: 24
+color_order: GRB
+initial_RED: 0.2
+initial_GREEN: 0.2
+initial_BLUE: 0.2
+
+`;
+    } else if (led === 'status_led') {
+        return `[output_pin status_led]
+# Status LED on ${prefix}
+pin: ${prefix}:CHANGE_ME
+value: 0
+
+`;
+    }
+    return '';
+}
+
+function generateAccelerometerSection(accel, prefix) {
+    if (accel === 'adxl345') {
+        if (prefix === 'host') {
+            return `[adxl345]
+# ADXL345 on Raspberry Pi
+cs_pin: rpi:None
+
+[resonance_tester]
+accel_chip: adxl345
+probe_points: 150, 150, 20  # Adjust to your bed center
+
+`;
+        }
+        return `[adxl345]
+# ADXL345 on ${prefix}
+cs_pin: ${prefix}:CHANGE_ME
+spi_software_sclk_pin: ${prefix}:CHANGE_ME
+spi_software_mosi_pin: ${prefix}:CHANGE_ME
+spi_software_miso_pin: ${prefix}:CHANGE_ME
+axes_map: x,y,z
+
+[resonance_tester]
+accel_chip: adxl345
+probe_points: 150, 150, 20  # Adjust to your bed center
+
+`;
+    } else if (accel === 'lis2dw') {
+        return `[lis2dw]
+# LIS2DW accelerometer on ${prefix}
+cs_pin: ${prefix}:CHANGE_ME
+spi_software_sclk_pin: ${prefix}:CHANGE_ME
+spi_software_mosi_pin: ${prefix}:CHANGE_ME
+spi_software_miso_pin: ${prefix}:CHANGE_ME
+
+[resonance_tester]
+accel_chip: lis2dw
+probe_points: 150, 150, 20  # Adjust to your bed center
+
+`;
+    }
+    return '';
+}
+
+function generateFilamentSensorSection(sensor, prefix) {
+    if (sensor === 'filament_switch') {
+        return `[filament_switch_sensor filament_sensor]
+# Filament switch sensor on ${prefix}
+switch_pin: ${prefix}:CHANGE_ME
+pause_on_runout: True
+runout_gcode:
+    PAUSE
+insert_gcode:
+    M117 Filament inserted
+
+`;
+    } else if (sensor === 'filament_motion') {
+        return `[filament_motion_sensor filament_motion]
+# Filament motion sensor on ${prefix}
+switch_pin: ${prefix}:CHANGE_ME
+detection_length: 7.0
+extruder: extruder
+pause_on_runout: True
+runout_gcode:
+    PAUSE
+
+`;
+    }
+    return '';
+}
+
+function generateGpioSection(gpio, prefix) {
+    if (gpio === 'relay') {
+        return `[output_pin relay]
+# Relay control on ${prefix}
+pin: ${prefix}:CHANGE_ME
+value: 0
+shutdown_value: 0
+
+`;
+    } else if (gpio === 'button') {
+        return `[gcode_button my_button]
+# Button on ${prefix}
+pin: ^${prefix}:CHANGE_ME
+press_gcode:
+    M117 Button pressed!
+
+`;
+    } else if (gpio === 'power_control') {
+        return `[output_pin ps_on]
+# Power supply control on ${prefix}
+pin: ${prefix}:CHANGE_ME
+value: 1
+shutdown_value: 0
+
+`;
+    }
+    return '';
 }
 
 // ============================================
