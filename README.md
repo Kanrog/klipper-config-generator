@@ -24,10 +24,11 @@ Setting up Klipper for your 3D printer requires a `printer.cfg` file that tells 
 
 This tool helps you generate that config file by:
 
-1. Starting from a base config for your motherboard
+1. Starting from a base config for your motherboard or one of the common printers available in klippers repo
 2. Letting you turn sections on or off with checkboxes
 3. Adjusting settings like bed size, endstop positions, and homing options
 4. Giving you a ready-to-download `printer.cfg`
+5. Add aditional MCU's to expand your printers functionality
 
 ---
 
