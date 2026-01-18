@@ -4,7 +4,7 @@
 
 A web-based tool for generating Klipper 3D printer configuration files.
 
-Access the tool here: https://kanrog.github.io/klipper-config-generator/
+🌐 **[Access the tool here](https://kanrog.github.io/klipper-config-generator/)** | 📖 **[Documentation Wiki](https://github.com/Kanrog/klipper-config-generator/wiki)**
 
 ---
 
@@ -24,10 +24,11 @@ Setting up Klipper for your 3D printer requires a `printer.cfg` file that tells 
 
 This tool helps you generate that config file by:
 
-1. Starting from a base config for your motherboard
+1. Starting from a base config for your motherboard or one of the common printers available in klippers repo
 2. Letting you turn sections on or off with checkboxes
 3. Adjusting settings like bed size, endstop positions, and homing options
 4. Giving you a ready-to-download `printer.cfg`
+5. Add aditional MCU's to expand your printers functionality
 
 ---
 
@@ -110,6 +111,8 @@ This project needs help. If you want to contribute:
 - **Test and report issues** - especially edge cases and unusual setups
 - **Suggest features** or improvements
 - **Share your working configs** for inclusion in future database
+
+📖 See the **[Contributing Guide](https://github.com/Kanrog/klipper-config-generator/wiki/How-to-Contribute)** in the wiki for more details.
 
 Get in touch: [kanrog.github.io](https://kanrog.github.io/)
 
