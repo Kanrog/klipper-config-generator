@@ -1,3 +1,19 @@
+// Fairline Klipper Config Generator
+// Copyright (C) 2026  Kanrog
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.txt.
+
 const REPO_OWNER = "Kanrog";
 const REPO_NAME = "klipper-config-generator";
 const CONFIG_FOLDER = "config-examples";
@@ -812,6 +828,179 @@ function resetSecondaryMcuSlotTracking() {
     }
 }
 
+/**
+ * Get a list of section names that are being handled by secondary MCUs
+ * These sections should be commented out in the main config
+ */
+function getSectionsHandledBySecondaryMcus() {
+    const handledSections = new Set();
+    const mcus = window.currentConfigData.secondaryMcus || [];
+    
+    for (const mcu of mcus) {
+        if (!mcu.enabled || !mcu.functions) continue;
+        
+        // Steppers
+        if (mcu.functions.steppers) {
+            for (const stepper of mcu.functions.steppers) {
+                // Add the stepper section
+                handledSections.add(stepper);
+                // Also add corresponding TMC sections
+                handledSections.add(`tmc2209 ${stepper}`);
+                handledSections.add(`tmc2208 ${stepper}`);
+                handledSections.add(`tmc2130 ${stepper}`);
+                handledSections.add(`tmc5160 ${stepper}`);
+            }
+        }
+        
+        // Heaters
+        if (mcu.functions.heaters) {
+            for (const heater of mcu.functions.heaters) {
+                if (heater === 'hotend') {
+                    handledSections.add('extruder');
+                    // Also add TMC for extruder
+                    handledSections.add('tmc2209 extruder');
+                    handledSections.add('tmc2208 extruder');
+                } else if (heater === 'heater_bed') {
+                    handledSections.add('heater_bed');
+                }
+            }
+        }
+        
+        // Fans
+        if (mcu.functions.fans) {
+            for (const fan of mcu.functions.fans) {
+                if (fan === 'part_fan') {
+                    handledSections.add('fan');
+                } else if (fan === 'hotend_fan') {
+                    handledSections.add('heater_fan hotend_fan');
+                    handledSections.add('heater_fan my_nozzle_fan');
+                    handledSections.add('heater_fan extruder_fan');
+                }
+            }
+        }
+        
+        // Probing
+        if (mcu.functions.probing) {
+            for (const probe of mcu.functions.probing) {
+                if (probe === 'probe' || probe === 'tap') {
+                    handledSections.add('probe');
+                } else if (probe === 'bltouch') {
+                    handledSections.add('bltouch');
+                }
+            }
+        }
+        
+        // Accelerometer
+        if (mcu.functions.accelerometer) {
+            for (const accel of mcu.functions.accelerometer) {
+                handledSections.add(accel); // adxl345, lis2dw
+            }
+        }
+        
+        // Filament sensors
+        if (mcu.functions.filament) {
+            for (const sensor of mcu.functions.filament) {
+                if (sensor === 'filament_switch') {
+                    handledSections.add('filament_switch_sensor');
+                } else if (sensor === 'filament_motion') {
+                    handledSections.add('filament_motion_sensor');
+                }
+            }
+        }
+    }
+    
+    return handledSections;
+}
+
+/**
+ * Check if a section name matches any section handled by secondary MCUs
+ */
+function isSectionHandledBySecondaryMcu(sectionName, handledSections) {
+    const name = sectionName.toLowerCase();
+    
+    // Direct match
+    if (handledSections.has(name)) {
+        return true;
+    }
+    
+    // Check for partial matches (e.g., "heater_fan hotend_fan" should match "heater_fan")
+    for (const handled of handledSections) {
+        if (name.startsWith(handled) || handled.startsWith(name)) {
+            // Be careful with partial matches - only for specific cases
+            if (name.includes('heater_fan') && handled.includes('heater_fan')) {
+                return true;
+            }
+            if (name.includes('filament_switch_sensor') && handled.includes('filament_switch_sensor')) {
+                return true;
+            }
+            if (name.includes('filament_motion_sensor') && handled.includes('filament_motion_sensor')) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Get the name of the secondary MCU that handles a given section
+ */
+function getSecondaryMcuForSection(sectionName) {
+    const name = sectionName.toLowerCase();
+    const mcus = window.currentConfigData.secondaryMcus || [];
+    
+    for (const mcu of mcus) {
+        if (!mcu.enabled || !mcu.functions) continue;
+        
+        // Check steppers
+        if (mcu.functions.steppers) {
+            for (const stepper of mcu.functions.steppers) {
+                if (name === stepper || name.includes(stepper)) {
+                    return mcu.name;
+                }
+                // Check TMC sections
+                if (name.startsWith('tmc') && name.includes(stepper)) {
+                    return mcu.name;
+                }
+            }
+        }
+        
+        // Check heaters
+        if (mcu.functions.heaters) {
+            for (const heater of mcu.functions.heaters) {
+                if (heater === 'hotend' && (name === 'extruder' || name.includes('tmc') && name.includes('extruder'))) {
+                    return mcu.name;
+                }
+                if (heater === 'heater_bed' && name === 'heater_bed') {
+                    return mcu.name;
+                }
+            }
+        }
+        
+        // Check fans
+        if (mcu.functions.fans) {
+            if (mcu.functions.fans.includes('part_fan') && name === 'fan') {
+                return mcu.name;
+            }
+            if (mcu.functions.fans.includes('hotend_fan') && name.includes('heater_fan')) {
+                return mcu.name;
+            }
+        }
+        
+        // Check probing
+        if (mcu.functions.probing) {
+            if ((mcu.functions.probing.includes('probe') || mcu.functions.probing.includes('tap')) && name === 'probe') {
+                return mcu.name;
+            }
+            if (mcu.functions.probing.includes('bltouch') && name === 'bltouch') {
+                return mcu.name;
+            }
+        }
+    }
+    
+    return 'secondary_mcu';
+}
+
 function removeSecondaryMcu(mcuId) {
     const index = window.currentConfigData.secondaryMcus.findIndex(m => m.id === mcuId);
     if (index !== -1) {
@@ -960,6 +1149,16 @@ function filterExpansionBoards() {
         option.disabled = true;
         select.appendChild(option);
     } else {
+        // Add a placeholder when filtering
+        if (filter.length > 0) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = `-- Select from ${filtered.length} result${filtered.length !== 1 ? 's' : ''} --`;
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+        }
+        
         filtered.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt.value;
@@ -2256,6 +2455,9 @@ function filterBoards() {
     
     if (!window.boardOptions) return;
     
+    // Store the currently selected value before clearing
+    const currentValue = select.value;
+    
     select.innerHTML = '';
     
     const filtered = window.boardOptions.filter(opt => 
@@ -2269,13 +2471,157 @@ function filterBoards() {
         option.disabled = true;
         select.appendChild(option);
     } else {
+        // Add a placeholder option at the top when searching
+        if (filter.length > 0) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = `-- Select from ${filtered.length} result${filtered.length !== 1 ? 's' : ''} --`;
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+        }
+        
         filtered.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.text;
+            // If no search filter, try to restore previous selection
+            if (filter.length === 0 && opt.value === currentValue) {
+                option.selected = true;
+            }
             select.appendChild(option);
         });
     }
+}
+
+function resetForm() {
+    // Confirm reset with user
+    if (!confirm('Are you sure you want to reset the entire form? All settings will be cleared.')) {
+        return;
+    }
+    
+    // Reset board selection
+    const boardSearch = document.getElementById('boardSearch');
+    const boardSelect = document.getElementById('boardSelect');
+    boardSearch.value = '';
+    
+    // Repopulate the board list with all options
+    if (window.boardOptions) {
+        boardSelect.innerHTML = '';
+        window.boardOptions.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.text;
+            boardSelect.appendChild(option);
+        });
+    }
+    
+    // Clear uploaded file display
+    const uploadedFileName = document.getElementById('uploadedFileName');
+    if (uploadedFileName) {
+        uploadedFileName.style.display = 'none';
+        uploadedFileName.textContent = '';
+    }
+    
+    // Reset file input
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    fileInputs.forEach(input => input.value = '');
+    
+    // Reset kinematics
+    document.getElementById('kinematicsSelect').value = 'cartesian';
+    updateKinematicsOptions();
+    
+    // Reset bed dimensions
+    document.getElementById('bedX').value = '235';
+    document.getElementById('bedY').value = '235';
+    document.getElementById('bedZ').value = '250';
+    
+    // Reset delta dimensions if present
+    const deltaRadius = document.getElementById('deltaRadius');
+    const deltaHeight = document.getElementById('deltaHeight');
+    if (deltaRadius) deltaRadius.value = '140';
+    if (deltaHeight) deltaHeight.value = '300';
+    
+    // Reset Z motor count
+    document.getElementById('zMotorCount').value = '1';
+    updateZMotorOptions();
+    
+    // Reset endstops
+    document.getElementById('endstopX').value = 'min';
+    document.getElementById('endstopY').value = 'min';
+    document.getElementById('zEndstopType').value = 'switch_min';
+    updateZEndstopOptions();
+    
+    // Reset probe offsets
+    const probeOffsetX = document.getElementById('probeOffsetX');
+    const probeOffsetY = document.getElementById('probeOffsetY');
+    if (probeOffsetX) probeOffsetX.value = '-40';
+    if (probeOffsetY) probeOffsetY.value = '-10';
+    
+    // Reset sensorless homing
+    document.getElementById('sensorlessXY').checked = false;
+    updateSensorlessWarning();
+    
+    // Reset Z tilt/leveling options
+    const zLevelingType = document.getElementById('zLevelingType');
+    const quadLevelingType = document.getElementById('quadLevelingType');
+    if (zLevelingType) zLevelingType.value = 'none';
+    if (quadLevelingType) quadLevelingType.value = 'none';
+    
+    // Clear current config data
+    window.currentConfigData = {
+        raw: '',
+        sections: {},
+        fileName: '',
+        driverCount: 0,
+        saveConfigBlock: '',
+        savedValues: {},
+        defaultValues: {},
+        includes: [],
+        secondaryMcus: []
+    };
+    
+    // Reset sections container
+    const sectionsContainer = document.getElementById('sections-container');
+    if (sectionsContainer) {
+        sectionsContainer.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">
+                Select a board to view available sections
+            </div>
+        `;
+    }
+    
+    // Update section count
+    const sectionCount = document.getElementById('sectionCount');
+    if (sectionCount) sectionCount.textContent = '0/0';
+    
+    // Reset includes UI
+    renderIncludesUI();
+    
+    // Reset secondary MCUs UI
+    renderSecondaryMcusUI();
+    
+    // Clear output
+    const output = document.getElementById('output');
+    if (output) {
+        output.value = '';
+        output.placeholder = "Click 'Generate' to create your config...";
+    }
+    
+    // Clear driver warning
+    const driverWarning = document.getElementById('driverWarning');
+    if (driverWarning) driverWarning.remove();
+    
+    // Clear sensorless warning
+    const sensorlessWarning = document.getElementById('sensorlessWarning');
+    if (sensorlessWarning) sensorlessWarning.remove();
+    
+    // Load first board config if available
+    if (boardSelect.value) {
+        loadConfigFromRepo(boardSelect.value);
+    }
+    
+    console.log('Form has been reset');
 }
 
 async function loadConfigFromRepo(fileName) {
@@ -2771,6 +3117,9 @@ function generate() {
         document.querySelectorAll('#sections-container input[type="checkbox"]:checked')
     ).map(cb => parseInt(cb.value));
     
+    // Get sections that are handled by secondary MCUs - these should be commented out
+    const sectionsHandledBySecondaryMcus = getSectionsHandledBySecondaryMcus();
+    
     let lines = rawConfig.split('\n');
     
     const saveConfigStart = lines.findIndex(line => 
@@ -2781,8 +3130,20 @@ function generate() {
     
     let output = '';
     let currentSectionIndex = -1;
+    let currentSectionName = '';
     let inSaveConfig = false;
+    let sectionHandledBySecondaryMcu = false;
     let i = 0;
+    
+    // Add disclaimer header
+    output += '##########################################################\n';
+    output += '#  Made with Fairline Klipper Config Generator           #\n';
+    output += '#  by Kanrog Creations                                   #\n';
+    output += '#  https://github.com/Kanrog/klipper-config-generator    #\n';
+    output += '#                                                        #\n';
+    output += '#  USE AT YOUR OWN RISK                                  #\n';
+    output += '#  Always review and test your config carefully!         #\n';
+    output += '##########################################################\n\n';
     
     if (includesBlock) {
         output += includesBlock + '\n';
@@ -2812,6 +3173,10 @@ function generate() {
             currentSectionIndex = sections.findIndex((s, idx) => 
                 s.startLine === i
             );
+            currentSectionName = sectionMatch[2].trim().toLowerCase();
+            
+            // Check if this section is handled by a secondary MCU
+            sectionHandledBySecondaryMcu = isSectionHandledBySecondaryMcu(currentSectionName, sectionsHandledBySecondaryMcus);
         }
         
         const isCurrentSectionSelected = currentSectionIndex !== -1 && 
@@ -2824,7 +3189,25 @@ function generate() {
             const section = sections[currentSectionIndex];
             const wasCommented = section.originallyCommented;
             
-            if (isCurrentSectionSelected) {
+            // If section is handled by secondary MCU, comment it out with a note
+            if (sectionHandledBySecondaryMcu) {
+                let processedLine = line;
+                
+                // Add note at section header
+                if (sectionMatch && line.includes('[')) {
+                    const mcuName = getSecondaryMcuForSection(currentSectionName);
+                    if (!line.trim().startsWith('#')) {
+                        processedLine = `# ${line}  # MOVED TO SECONDARY MCU: ${mcuName}`;
+                    } else {
+                        processedLine = line;
+                    }
+                } else if (!line.trim().startsWith('#') && line.trim() !== '') {
+                    processedLine = '# ' + line;
+                }
+                
+                output += processedLine + '\n';
+                i++;
+            } else if (isCurrentSectionSelected) {
                 let processedLine = line;
                 
                 if (wasCommented && line.trim().startsWith('#')) {
@@ -3012,8 +3395,32 @@ function applyLineModifications(line, sectionName, settings, savedValues, allLin
 function generateAdditionalZMotors(settings, sections) {
     if (settings.zMotorCount <= 1) return '';
     
+    // Get sections handled by secondary MCUs
+    const sectionsHandledBySecondaryMcus = getSectionsHandledBySecondaryMcus();
+    
     const separator = '#=====================================#\n';
     let cfg = '';
+    
+    // Check if any Z motors need to be generated on main MCU
+    let motorsToGenerate = [];
+    for (let i = 1; i < settings.zMotorCount; i++) {
+        const stepperName = `stepper_z${i}`;
+        if (!sectionsHandledBySecondaryMcus.has(stepperName)) {
+            motorsToGenerate.push(i);
+        }
+    }
+    
+    // If all additional Z motors are on secondary MCUs, don't generate anything
+    if (motorsToGenerate.length === 0) {
+        // Still generate z_tilt or QGL if needed
+        if (settings.zLevelingType === 'z_tilt' || settings.zLevelingType === 'quad_gantry_level') {
+            cfg += `${separator}`;
+            cfg += `# Z LEVELING CONFIGURATION\n`;
+            cfg += `${separator}\n\n`;
+            cfg += generateZLevelingSection(settings);
+        }
+        return cfg;
+    }
     
     cfg += `${separator}`;
     cfg += `# ADDITIONAL Z MOTORS (Generated)\n`;
@@ -3028,7 +3435,7 @@ function generateAdditionalZMotors(settings, sections) {
     const microMatch = stepperZContent.match(/microsteps:\s*(\d+)/);
     const microsteps = microMatch ? microMatch[1] : '16';
     
-    for (let i = 1; i < settings.zMotorCount; i++) {
+    for (const i of motorsToGenerate) {
         cfg += `[stepper_z${i}]\n`;
         cfg += `step_pin: CHANGE_ME\n`;
         cfg += `dir_pin: CHANGE_ME\n`;
@@ -3049,13 +3456,24 @@ function generateAdditionalZMotors(settings, sections) {
         const currentMatch = tmcContent.match(/run_current:\s*([\d.]+)/);
         const runCurrent = currentMatch ? currentMatch[1] : '0.580';
         
-        for (let i = 1; i < settings.zMotorCount; i++) {
+        for (const i of motorsToGenerate) {
             cfg += `[${tmcType} stepper_z${i}]\n`;
             cfg += `uart_pin: CHANGE_ME\n`;
             cfg += `run_current: ${runCurrent}\n`;
             cfg += `stealthchop_threshold: 999999\n\n`;
         }
     }
+    
+    cfg += generateZLevelingSection(settings);
+    
+    return cfg;
+}
+
+/**
+ * Generate Z leveling section (z_tilt or quad_gantry_level)
+ */
+function generateZLevelingSection(settings) {
+    let cfg = '';
     
     if (settings.zLevelingType === 'z_tilt') {
         cfg += `[z_tilt]\n`;
@@ -3067,6 +3485,11 @@ function generateAdditionalZMotors(settings, sections) {
             cfg += `    ${Math.round(settings.bedX / 2)}, -50\n`;
             cfg += `    -50, ${settings.bedY + 50}\n`;
             cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}\n`;
+        } else if (settings.zMotorCount === 4) {
+            cfg += `    -50, -50\n`;
+            cfg += `    -50, ${settings.bedY + 50}\n`;
+            cfg += `    ${settings.bedX + 50}, ${settings.bedY + 50}\n`;
+            cfg += `    ${settings.bedX + 50}, -50\n`;
         }
         cfg += `points:\n`;
         cfg += `    30, ${Math.round(settings.bedY / 2)}\n`;
