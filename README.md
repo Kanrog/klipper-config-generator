@@ -10,7 +10,7 @@ A web-based tool for generating Klipper 3D printer configuration files.
 
 ## ⚠️ Active Development ⚠️
 
-**This tool is under active development and is NOT ready for general use.**
+**This tool is under active development.**
 
 This tool is ready for general use, but updates are frequent. You may encounter bugs—please report them via the Issues tab so we can fix them quickly! Always double-check your printer configuration after applying changes.
 
