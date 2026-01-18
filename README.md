@@ -4,7 +4,9 @@
 
 A web-based tool for generating Klipper 3D printer configuration files.
 
-🌐 **[Access the tool here](https://kanrog.github.io/klipper-config-generator/)** | 📖 **[Documentation Wiki](https://github.com/Kanrog/klipper-config-generator/wiki)** | 📖 **[Klipper Documentation](https://www.klipper3d.org/Overview.html)**
+🌐 **[Access the tool here](https://kanrog.github.io/klipper-config-generator/)** 
+
+📖 **[Documentation Wiki](https://github.com/Kanrog/klipper-config-generator/wiki)** | 📖 **[Klipper Documentation](https://www.klipper3d.org/Overview.html)**
 
 ---
 
