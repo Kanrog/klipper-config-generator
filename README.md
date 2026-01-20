@@ -124,9 +124,9 @@ Get in touch: [kanrog.github.io](https://kanrog.github.io/)
 
 If you find this project helpful and want to support its development, consider buying me a coffee! Your support helps keep the project maintained and moving forward.
 
-[![Support me on Ko-fi](https://storage.ko-fi.com/cdn/cup-border.png)](https://ko-fi.com/your_username)
+[![Support me on Ko-fi](https://storage.ko-fi.com/cdn/cup-border.png)](https://ko-fi.com/kanrog)
 
-[Support on Ko-fi](https://ko-fi.com/your_username)
+[Support on Ko-fi](https://ko-fi.com/kanrog)
 
 ---
 
