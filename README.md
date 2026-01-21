@@ -4,15 +4,17 @@
 
 A web-based tool for generating Klipper 3D printer configuration files.
 
-🌐 **[Access the tool here](https://kanrog.github.io/klipper-config-generator/)** | 📖 **[Documentation Wiki](https://github.com/Kanrog/klipper-config-generator/wiki)**
+🌐 **[Access the tool here](https://kanrog.github.io/klipper-config-generator/)** 
+
+📖 **[Documentation Wiki](https://github.com/Kanrog/klipper-config-generator/wiki)** | 📖 **[Klipper Documentation](https://www.klipper3d.org/Overview.html)**
 
 ---
 
-## WORK IN PROGRESS
+## ⚠️ Active Development ⚠️
 
-**This tool is under active development and is NOT ready for general use.**
+**This tool is under active development.**
 
-If you are new to Klipper or 3D printer firmware configuration, this tool is not yet suitable for you. Incorrect configuration can damage your printer or cause safety hazards. Please wait for a stable release or use the official Klipper documentation and example configs instead.
+This tool is ready for general use, but updates are frequent. You may encounter bugs—please report them via the Issues tab so we can fix them quickly! Always double-check your printer configuration after applying changes.
 
 If you are an experienced user and want to help test or contribute, you are welcome to try it out and provide feedback.
 
@@ -115,6 +117,16 @@ This project needs help. If you want to contribute:
 📖 See the **[Contributing Guide](https://github.com/Kanrog/klipper-config-generator/wiki/How-to-Contribute)** in the wiki for more details.
 
 Get in touch: [kanrog.github.io](https://kanrog.github.io/)
+
+---
+
+## Support the Project
+
+If you find this project helpful and want to support its development, consider buying me a coffee! Your support helps keep the project maintained and moving forward.
+
+[![Support me on Ko-fi](https://storage.ko-fi.com/cdn/cup-border.png)](https://ko-fi.com/kanrog)
+
+[Support on Ko-fi](https://ko-fi.com/kanrog)
 
 ---
 
